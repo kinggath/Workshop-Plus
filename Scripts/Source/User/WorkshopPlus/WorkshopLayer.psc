@@ -18,7 +18,10 @@ WorkshopPlus:LayerManager Property LayerManager Auto Const Mandatory
 ObjectReference Property kLastCreatedItem Auto Hidden
 Int Property iLayerID = -1 Auto Hidden
 Bool Property bShown = true Auto Hidden
-Bool Property bActive = true Auto Hidden
+Bool Property bActive = false Auto Hidden
+Bool Property bEnabled = true Auto Hidden
+Bool Property bLinked = true Auto Hidden
+Int Property iWorkshopID = -1 Auto Hidden ; 1.0.1 - Ensure we can figure out where this layer came from if we end up with a ref and aren't positive we're in the CurrentSettlementLayers workshop
 EffectShader Property CurrentHighlightShader = None Auto Hidden
 
 Bool Property bDeletedByManager = false Auto Hidden ; Used by LayerManager to tell the layer it has already taken care of the link chain

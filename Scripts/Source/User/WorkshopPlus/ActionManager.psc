@@ -63,6 +63,7 @@ Group Keywords
 	Keyword Property WorkshopCanBePowered Auto Const
 	Keyword Property PowerConnection Auto Const
 	Keyword Property WorkshopItemKeyword Auto Const
+	Keyword Property TemporarilyMoved Auto Const Mandatory
 EndGroup
 
 Group Aliases
@@ -134,14 +135,16 @@ EndEvent
 
 
 Event WorkshopFramework:MainQuest.PlayerEnteredSettlement(WorkshopFramework:MainQuest akQuestRef, Var[] akArgs)
-	WorkshopScript kWorkshopRef = akArgs[0] as WorkshopScript
-	Bool bPreviouslyUnloaded = akArgs[1] as Bool
+	WorkshopScript kThisWorkshopRef = akArgs[0] as WorkshopScript
+	WorkshopScript kPreviousWorkshopRef = akArgs[1] as WorkshopScript
+	Bool bThisWorkshopPreviouslyUnloaded = akArgs[2] as Bool
 	
-	RecordInitialPositions(kWorkshopRef)
+	RecordInitialPositions(kThisWorkshopRef)
 	
-	if(bPreviouslyUnloaded)
-		Debug.MessageBox("Entered new settlement.")
-		; TODO: Should we clear the history? Perhaps give the player an option to set that as the behavior.
+	if(kThisWorkshopRef != kPreviousWorkshopRef || bThisWorkshopPreviouslyUnloaded)
+		ModTrace("[WS Plus] Entered new settlement (or returned after a long time away), clearing Undo/Redo history.")
+		
+		ClearHistory()
 	endif
 EndEvent
 
@@ -150,7 +153,7 @@ Event WorkshopFramework:MainQuest.PlayerExitedSettlement(WorkshopFramework:MainQ
 	Bool bStillLoaded = akArgs[1] as Bool
 	
 	if( ! bStillLoaded)
-		Debug.MessageBox("Left far enough from last settlement that it unloaded.")
+		ModTrace("[WS Plus] Left far enough from last settlement that it unloaded.")
 	endif
 EndEvent
 
@@ -163,22 +166,10 @@ Function HandleQuestInit()
 	Parent.HandleQuestInit()
 	
 	; Init arrays
-	History01 = new BuildAction[128]
-	History02 = new BuildAction[128]
-	History03 = new BuildAction[128]
-	History04 = new BuildAction[128]
-	History05 = new BuildAction[128]
-	History06 = new BuildAction[128]
-	History07 = new BuildAction[128]
-	History08 = new BuildAction[128]
-	History09 = new BuildAction[128]
-	History10 = new BuildAction[128]
+	ClearHistory() ; This will initialize all of our vars
 	
 	InitialPositionsRecorded = new Bool[128]
 	bRecordInitialPositionsBlock = new Bool[128]
-	
-	LastUsed = new ArraySlot
-	Pointer = new ArraySlot
 	
 	; Register for events
 	RegisterForCustomEvent(WSFW_Main, "PlayerEnteredSettlement")
@@ -193,6 +184,12 @@ Function HandleGameLoaded()
 	
 	; New workshops might have been added, so we need to register for those events
 	RegisterForAllWorkshopEvents()
+	
+	; Check if player started in a settlement
+	WorkshopScript currentWorkshop = WorkshopParent.CurrentWorkshop.GetRef() as WorkshopScript
+	if(PlayerRef.IsWithinBuildableArea(currentWorkshop))
+		RecordInitialPositions(currentWorkshop)
+	endif
 EndFunction
 
 
@@ -250,7 +247,7 @@ Function RecordInitialPositions(WorkshopScript akWorkshopRef)
 		ObjectFinderQuest.Stop()
 		
 		InitialPositionsRecorded[iWorkshopID] = true
-		Debug.Notification("Workshop Plus: Undo support ready.")
+		UndoSupportReady.Show()
 	else
 		ModTrace("Failed to start ObjectFinder Quest.")
 	endif
@@ -268,6 +265,24 @@ Function RecordLastPosition(ObjectReference akObjectRef)
 		
 		ThreadManager.QueueThread(kThreadRef)
 	endif
+EndFunction
+
+
+
+Function ClearHistory()
+	History01 = new BuildAction[128]
+	History02 = new BuildAction[128]
+	History03 = new BuildAction[128]
+	History04 = new BuildAction[128]
+	History05 = new BuildAction[128]
+	History06 = new BuildAction[128]
+	History07 = new BuildAction[128]
+	History08 = new BuildAction[128]
+	History09 = new BuildAction[128]
+	History10 = new BuildAction[128]
+	
+	LastUsed = new ArraySlot
+	Pointer = new ArraySlot
 EndFunction
 
 
@@ -304,6 +319,14 @@ Function CreateHistory(ObjectReference akObjectRef, Int aiWorkshopID, Int aiActi
 	
 	ThisAction.ObjectRef = akObjectRef
 	ThisAction.BaseObject = formBase
+	
+	int iWaitCount = 0
+	while(akObjectRef.HasKeyword(TemporarilyMoved) && iWaitCount < 10)
+		; Give the acting script a moment to restore the original position
+		Utility.Wait(0.01)
+		iWaitCount += 1
+	endWhile
+	
 	ThisAction.posX = akObjectRef.X
 	ThisAction.posY = akObjectRef.Y
 	ThisAction.posZ = akObjectRef.Z
@@ -311,6 +334,7 @@ Function CreateHistory(ObjectReference akObjectRef, Int aiWorkshopID, Int aiActi
 	ThisAction.angY = akObjectRef.GetAngleY()
 	ThisAction.angZ = akObjectRef.GetAngleZ()
 	ThisAction.fScale = akObjectRef.GetScale()
+	
 	
 	if(aiActionType == Action_Move)	
 		;Debug.MessageBox("Move Action - recording previous data")
@@ -322,13 +346,13 @@ Function CreateHistory(ObjectReference akObjectRef, Int aiWorkshopID, Int aiActi
 		ThisAction.lastAngZ = akObjectRef.GetValue(avLastAngZ)
 		ThisAction.lastfScale = akObjectRef.GetValue(avLastScale)
 	else
-		ThisAction.lastPosX = akObjectRef.X
-		ThisAction.lastPosY = akObjectRef.Y
-		ThisAction.lastPosZ = akObjectRef.Z
-		ThisAction.lastAngX = akObjectRef.GetAngleX()
-		ThisAction.lastAngY = akObjectRef.GetAngleY()
-		ThisAction.lastAngZ = akObjectRef.GetAngleZ()
-		ThisAction.lastfScale = akObjectRef.GetScale()
+		ThisAction.lastPosX = ThisAction.posX
+		ThisAction.lastPosY = ThisAction.posY
+		ThisAction.lastPosZ = ThisAction.posZ
+		ThisAction.lastAngX = ThisAction.angX
+		ThisAction.lastAngY = ThisAction.angY
+		ThisAction.lastAngZ = ThisAction.angZ
+		ThisAction.lastfScale = ThisAction.fScale
 	endif
 	
 	if(aiActionType == Action_Create || aiActionType == Action_Move)
@@ -543,22 +567,23 @@ EndFunction
 Function ApplyAction(BuildAction aAction, Bool bReverse = false)
 	WorkshopScript thisWorkshop = WorkshopParent.GetWorkshop(aAction.iWorkshopID)
 	
-	String sTest = ""
+	String sActionMessage = " Action Manager - "
 	if(bReverse)
-		sTest = "Reversing "
+		sActionMessage += "Reversing "
 	else
-		sTest = "Applying "
+		sActionMessage += "Applying "
 	endif
 	
 	if(aAction.iAction == Action_Create)
-		sTest += "Create action."
+		sActionMessage += "Create action."
 	elseif(aAction.iAction == Action_Move)
-		sTest += "Move action."
+		sActionMessage += "Move action."
 	elseif(aAction.iAction == Action_Destroy)
-		sTest += "Destroy action."
+		sActionMessage += "Destroy action."
 	endif
 	
-	;Debug.MessageBox(sTest)
+	ModTrace("[WS Plus]" + sActionMessage)
+
 
 		; Before starting, clear power
 	Float fPowerRequired = 0.0
@@ -576,6 +601,7 @@ Function ApplyAction(BuildAction aAction, Bool bReverse = false)
 		endif
 	endif
 	
+
 	if(( ! bReverse && aAction.iAction == Action_Destroy) || (bReverse && aAction.iAction == Action_Create))
 		; Scrap this ref
 		int iLayerID = aAction.ObjectRef.GetValue(LayerManager.LayerID) as Int
@@ -649,15 +675,15 @@ Function ApplyAction(BuildAction aAction, Bool bReverse = false)
 			aAction.ObjectRef.Disable(false)
 			aAction.ObjectRef.Enable(false)
 		else
-			;Debug.MessageBox("Disabled - creating new.")			
+			;Debug.MessageBox("Disabled - creating new.")	
+			Bool bNewCopy = false
 			if( ! aAction.ObjectRef || aAction.ObjectRef.IsDeleted())
 				; Create new copy
+				bNewCopy = true
 				aAction.ObjectRef = thisWorkshop.PlaceAtMe(aAction.BaseObject, 1, false, true, false)
-			else
-				aAction.ObjectRef.Enable(false)
-				
-				iLayerID = aAction.ObjectRef.GetValue(LayerManager.LayerID) as Int
 			endif
+			
+			ModTrace("[WATCHING FOR] Repositioning " + aAction.ObjectRef + ", Using position data: " + f3dData)
 			
 			aAction.ObjectRef.SetLinkedRef(thisWorkshop, WorkshopItemKeyword)
 			aAction.ObjectRef.SetPosition(f3dData[0], f3dData[1], f3dData[2])
@@ -670,6 +696,10 @@ Function ApplyAction(BuildAction aAction, Bool bReverse = false)
 			aAction.ObjectRef.SetAngle(f3dData[3], f3dData[4], f3dData[5])
 			aAction.ObjectRef.SetScale(f3dData[6])
 			aAction.ObjectRef.Enable(false)
+			
+			if( ! bNewCopy) ; This object should still have its previous layer id
+				iLayerID = aAction.ObjectRef.GetValue(LayerManager.LayerID) as Int
+			endif
 			
 			thisWorkshop.OnWorkshopObjectPlaced(aAction.ObjectRef)
 		endif
@@ -707,16 +737,38 @@ Function ApplyAction(BuildAction aAction, Bool bReverse = false)
 EndFunction
 
 
+Bool Function SafeToClone(ObjectReference akObjectRef)
+	Form formBase = akObjectRef.GetBaseObject()
+	if(SkipForms.Find(formBase) >= 0)
+		return false
+	endif
+	
+	if(akObjectRef as WorkshopScript)
+		return false
+	endif
+	
+	if(akObjectRef as Actor && ! ( akObjectRef as WorkshopObjectActorScript))
+		return false
+	endif
+	
+	return true
+EndFunction
+
+
 Function CloneGrabbed()
 	if( ! kGrabbedRef)
 		return
 	endif
 	
-	WorkshopScript thisWorkshop = kGrabbedRef.GetLinkedRef(WorkshopItemKeyword) as WorkshopScript
+	WorkshopScript thisWorkshop = WorkshopParent.CurrentWorkshop.GetRef() as WorkshopScript
 	
-	if( ! thisWorkshop)
+	if( ! thisWorkshop)		
 		Debug.MessageBox("Unable to clone object, no workshop found.")
 		return
+	endif
+	
+	if( ! SafeToClone(kGrabbedRef))
+		Debug.Notification("[WS Plus] You can't clone that.")
 	endif
 	
 	ObjectReference kClonedRef = kGrabbedRef.PlaceAtMe(kGrabbedRef.GetBaseObject(), abDeleteWhenAble = false)
