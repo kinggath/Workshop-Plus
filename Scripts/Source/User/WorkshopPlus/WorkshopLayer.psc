@@ -26,13 +26,19 @@ EffectShader Property CurrentHighlightShader = None Auto Hidden
 
 Bool Property bDeletedByManager = false Auto Hidden ; Used by LayerManager to tell the layer it has already taken care of the link chain
 
+; 1.0.2 - Storing the latest handle in the layer so we can attach/remove any items as they are added
+ObjectReference Property LayerHandle Auto Hidden
 
 Function Disable(Bool abFade = false)
 	Cleanup()
+	
+	Parent.Disable(abFade) ; 1.0.2 - Ensure actual disable takes place
 EndFunction
 
 Function DisableNoWait(Bool abFade = false)
 	Cleanup()
+	
+	Parent.DisableNoWait(abFade) ; 1.0.2 - Ensure actual disable takes place
 EndFunction
 
 Function Cleanup()
@@ -40,5 +46,6 @@ Function Cleanup()
 		LayerManager.LayerDeleted(Self, abPlayerInitiatedDeletion = false)
 	endif
 	
+	LayerHandle = None
 	kLastCreatedItem = None
 EndFunction

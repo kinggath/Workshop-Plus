@@ -16,6 +16,7 @@ Scriptname WorkshopPlus:LayerManager extends WorkshopFramework:Library:SlaveQues
 
 import WorkshopFramework:Library:UtilityFunctions
 import WorkshopFramework:Library:DataStructures
+import WorkshopFramework:WorkshopFunctions
 
 ; ---------------------------------------------
 ; Consts 
@@ -24,7 +25,7 @@ import WorkshopFramework:Library:DataStructures
 
 int iAutoUnhideLayersTimerID = 100 Const
 
-int iMaxLayers = 15 ; We can expand this, but we'll need to edit the LayerSelect message in XEdit as we're at the max the CK will allow atm
+WorkshopPlus:SettlementLayers CurrentSettlementLayers
 
 String sLayerWidgetName = "WSPlus_Layers.swf" Const
 int iLayerWidgetCommand_ShowWidget = 201 Const
@@ -42,9 +43,11 @@ Float fLayerWidgetDefault_Scale = 0.5 Const
 Group Controllers
 	WorkshopFramework:MainThreadManager Property ThreadManager Auto Const Mandatory
 	WorkshopFramework:WorkshopResourceManager Property ResourceManager Auto Const Mandatory
+	WorkshopFramework:PlaceObjectManager Property PlaceObjectManager Auto Const Mandatory
 	WorkshopFramework:MainQuest Property WSFW_Main Auto Const Mandatory
 	WorkshopFramework:HUDFrameworkManager Property HUDFrameworkManager Auto Const Mandatory
 	WorkshopPlus:MainQuest Property WSPlus_Main Auto Const Mandatory
+	WorkshopPlus:ActionManager Property ActionManager Auto Const Mandatory
 	Form Property Thread_ScrapObject Auto Const Mandatory
 	GlobalVariable Property gCurrentWorkshop Auto Const Mandatory
 	{ Point to currentWorkshopId global controlled by WorkshopParent }
@@ -61,6 +64,7 @@ EndGroup
 Group Assets
 	Form Property SettlementLayersHolderForm Auto Const Mandatory
 	Form Property WorkshopLayerForm Auto Const Mandatory
+	Form Property PlaceableLayerHandleForm Auto Const Mandatory
 	EffectShader Property ShaderActiveLayer Auto Const Mandatory
 	EffectShader Property ShaderHighlightLayer Auto Const Mandatory
 	EffectShader Property ShaderFlashLayer Auto Const Mandatory
@@ -93,6 +97,12 @@ Group Keyword
 	Keyword Property LayerItemLinkChainKeyword Auto Const Mandatory
 	Keyword Property TemporarilyMoved Auto Const Mandatory
 	Keyword Property AddedToLayerKeyword Auto Const Mandatory
+	Keyword Property HandleLinkKeyword Auto Const Mandatory
+	{ 1.0.2 - Link objects to the layer handle object, should be using WorkshopStackedItemParentKEYWORD }
+	Keyword Property LayerHandleKeyword Auto Const Mandatory
+	{ 1.0.2 - Keyword to identify an object as a layer handle }
+	Keyword Property UndoHelperLinkKeyword Auto Const Mandatory
+	{ 1.0.2 - Link mass duplicated objects to an undo helper }
 EndGroup
 
 Group Messages
@@ -148,20 +158,21 @@ Int Property NextLayerID
 EndProperty
 
 
+int Property iMaxLayers = 15 Auto Const ; We can expand this, but we'll need to edit the LayerSelect message in XEdit as we're at the max the CK will allow atm ; 1.0.2 - Made this a const property so we can access it in other quests and also expand it in the future
+
+
 Float Property fLayersWidgetX = 1100.0 Auto Hidden Conditional
 Float Property fLayersWidgetY = 150.0 Auto Hidden Conditional
 Float Property fLayersWidgetScale = 0.5 Auto Hidden Conditional
+
 
 ; ---------------------------------------------
 ; Vars
 ; ---------------------------------------------
 
 Bool bRegisterWorkshopsBlock = false
-WorkshopPlus:SettlementLayers CurrentSettlementLayers
 Bool bMultipleLayersExist = false
 Bool bDuplicateLayerBlock = false
-Int[] DuplicateEventIDs
-WorkshopPlus:WorkshopLayer ExpectingDuplicatesLayerRef
 
 ; ---------------------------------------------
 ; Events
@@ -201,8 +212,9 @@ Event ObjectReference.OnWorkshopObjectMoved(ObjectReference akWorkshopRef, Objec
 	WorkshopScript asWorkshop = akWorkshopRef as WorkshopScript
 	
 	; If option to auto shift moved object to active layer, then do so
-	if(Setting_AutoChangeLayerOnMovedObjects.GetValue() == 1)
+	if(Setting_AutoChangeLayerOnMovedObjects.GetValue() == 1)		
 		WorkshopPlus:WorkshopLayer kLayerRef = CurrentSettlementLayers.ActiveLayer
+		
 		if(asWorkshop.GetWorkshopID() != gCurrentWorkshop.GetValueInt())
 			WorkshopPlus:SettlementLayers kLayerHolder = asWorkshop.GetLinkedRef(LayerHolderLinkKeyword) as WorkshopPlus:SettlementLayers
 			
@@ -215,9 +227,25 @@ Event ObjectReference.OnWorkshopObjectMoved(ObjectReference akWorkshopRef, Objec
 			int iPreviousLayerID = akReference.GetValue(LayerID) as Int
 			WorkshopPlus:WorkshopLayer PreviousLayer = GetLayerFromID(iPreviousLayerID, asWorkshop)
 			if(PreviousLayer)
+				if(PreviousLayer == kLayerRef) ; 1.0.2 - Already on the correct layer
+					return
+				endif
+				
 				RemoveItemFromLayer_Lock(akReference, PreviousLayer, kLayerRef)
-			else
-				AddItemToLayer_Lock(akReference, kLayerRef)
+			endif
+			
+			AddItemToLayer_Lock(akReference, kLayerRef)
+		endif
+	else
+		; 1.0.2 - If layer has a LayerHandle, relink it, because moving an item auto disconnects the WorkshopStackedItemParentKEYWORD link
+		int iPreviousLayerID = akReference.GetValue(LayerID) as Int
+		WorkshopPlus:WorkshopLayer CurrentItemLayer = GetLayerFromID(iPreviousLayerID, asWorkshop)
+		
+		if(CurrentItemLayer && CurrentItemLayer.LayerHandle && ActionManager.kGrabbedRef != CurrentItemLayer.LayerHandle)
+			WorkshopPlus:ObjectReferences:LayerHandle asHandle = CurrentItemLayer.LayerHandle as WorkshopPlus:ObjectReferences:LayerHandle
+			
+			if(asHandle.fLinkRadius < 0 || akReference.GetDistance(asHandle) < asHandle.fLinkRadius)
+				akReference.SetLinkedRef(CurrentItemLayer.LayerHandle, HandleLinkKeyword)
 			endif
 		endif
 	endif
@@ -227,44 +255,49 @@ EndEvent
 Event ObjectReference.OnWorkshopObjectDestroyed(ObjectReference akWorkshopRef, ObjectReference akReference)
 	WorkshopScript asWorkshop = akWorkshopRef as WorkshopScript
 	
-	; Move and enable temporarily so we can test AV (Always setposition while disabled, it's cheaper)
-	Float fX = akReference.X
-	Float fY = akReference.Y
-	Float fZ = akReference.Z
-	akReference.AddKeyword(TemporarilyMoved)
-	akReference.SetPosition(fX, fY, fZ - 10000)
-	akReference.Enable(false)
-	Int iLayerID = akReference.GetValue(LayerID) as Int
-	akReference.Disable(false)
-	akReference.SetPosition(fX, fY, fZ)
-	akReference.RemoveKeyword(TemporarilyMoved)
-	
-	if(iLayerID > 0)
-		WorkshopPlus:SettlementLayers kLayerHolderRef = CurrentSettlementLayers
-		if(asWorkshop.GetWorkshopID() != gCurrentWorkshop.GetValueInt())
-			kLayerHolderRef = asWorkshop.GetLinkedRef(LayerHolderLinkKeyword) as WorkshopPlus:SettlementLayers
-			
-			if( ! kLayerHolderRef)
-				return
-			endif
-		endif
+	; Make sure we remove items from the layer they were on
+	if(akReference.HasKeyword(AddedToLayerKeyword)) ; 1.0.2 - Not everything needs to be removed from layers
+		; Move and enable temporarily so we can test AV (Always setposition while disabled, it's cheaper)
+		Float fX = akReference.X
+		Float fY = akReference.Y
+		Float fZ = akReference.Z
+		akReference.AddKeyword(TemporarilyMoved)
+		akReference.SetPosition(fX, fY, fZ - 10000)
+		akReference.Enable(false)
+		Int iLayerID = akReference.GetValue(LayerID) as Int
+		akReference.Disable(false)
+		akReference.SetPosition(fX, fY, fZ)
+		akReference.RemoveKeyword(TemporarilyMoved)
 		
-		if(kLayerHolderRef.DefaultLayer.iLayerID == iLayerID)
-			RemoveItemFromLayer_Lock(akReference, kLayerHolderRef.DefaultLayer)
-		else
-			int i = 0 
-			bool bLayerFound = false
-			while(i < kLayerHolderRef.Layers.Length && ! bLayerFound)
-				if(kLayerHolderRef.Layers[i].iLayerID == iLayerID)
-					RemoveItemFromLayer_Lock(akReference, kLayerHolderRef.Layers[i])
-					bLayerFound = true
-				endif
+		if(iLayerID > 0)
+			WorkshopPlus:SettlementLayers kLayerHolderRef = CurrentSettlementLayers
+			if(asWorkshop.GetWorkshopID() != gCurrentWorkshop.GetValueInt())
+				kLayerHolderRef = asWorkshop.GetLinkedRef(LayerHolderLinkKeyword) as WorkshopPlus:SettlementLayers
 				
-				i += 1
-			endWhile
+				if( ! kLayerHolderRef)
+					return
+				endif
+			endif
+			
+			if(kLayerHolderRef.DefaultLayer.iLayerID == iLayerID)
+				RemoveItemFromLayer_Lock(akReference, kLayerHolderRef.DefaultLayer)
+			else
+				int i = 0 
+				bool bLayerFound = false
+				while(i < kLayerHolderRef.Layers.Length && ! bLayerFound)
+					if(kLayerHolderRef.Layers[i].iLayerID == iLayerID)
+						RemoveItemFromLayer_Lock(akReference, kLayerHolderRef.Layers[i])
+						bLayerFound = true
+					endif
+					
+					i += 1
+				endWhile
+			endif
 		endif
 	endif
 EndEvent
+
+
 
 
 Event WorkshopFramework:MainQuest.PlayerEnteredSettlement(WorkshopFramework:MainQuest akQuestRef, Var[] akArgs)
@@ -286,62 +319,6 @@ Event WorkshopFramework:MainQuest.PlayerExitedSettlement(WorkshopFramework:MainQ
 	Bool bStillLoaded = akArgs[1] as Bool
 	
 	UpdateLayerWidget(abShow = false)
-EndEvent
-
-
-; Handle objects created by workshop framework
-Event WorkshopFramework:PlaceObjectManager.ObjectBatchCreated(WorkshopFramework:PlaceObjectManager akPlaceObjectManagerQuest, Var[] akArgs)
-	ActorValue BatchAV = akArgs[0] as ActorValue 
-	Int iBatchID = akArgs[1] as Int
-	Bool bAdditionalEvents = akArgs[2] as Bool
-	
-	if( ! ExpectingDuplicatesLayerRef)
-		; No layer expecting, just use the default layer
-		ExpectingDuplicatesLayerRef = CurrentSettlementLayers.DefaultLayer
-	endif
-	
-	ModTrace("[WSPlus] Duplicate Layer: ObjectBatchCreated event received.")
-	if(BatchAV == WorkshopFramework:WSFW_API.GetDefaultPlaceObjectsBatchAV())
-		; This event is for us!
-		int iLockKey = GetLock()
-		if(iLockKey <= GENERICLOCK_KEY_NONE)
-			ModTrace("Unable to get lock!", 2)
-			
-			return
-		endif
-		
-		if(ExpectingDuplicatesLayerRef)
-			ModTrace("[WS Plus] Adding batch created items to layer " + ExpectingDuplicatesLayerRef + ".")
-			int i = 3
-			while(i < akArgs.Length)
-				ObjectReference kTemp = akArgs[i] as ObjectReference
-				
-				if(kTemp)
-					AddItemToLayer_Lock(kTemp, ExpectingDuplicatesLayerRef, abGetLock = false)
-				endif
-				
-				i += 1
-			endWhile
-		endif
-		
-		Int iDuplicateEventIndex = DuplicateEventIDs.Find(iBatchID)
-		if(DuplicateEventIDs.Length > 1)
-			DuplicateEventIDs.Remove(iDuplicateEventIndex)
-		elseif(DuplicateEventIDs.Length == 1)
-			; Finished processing a duplicate layer event
-			DuplicateEventIDs = new Int[0]
-			DuplicateActiveLayerComplete.Show()
-		endif
-		
-		if(DuplicateEventIDs == None || DuplicateEventIDs.Length == 0)
-			bDuplicateLayerBlock = false
-		endif
-		
-		; Release Edit Lock
-		if(ReleaseLock(iLockKey) < GENERICLOCK_KEY_NONE )
-			ModTrace("Failed to release lock " + iLockKey + "!", 2)
-		endif
-	endif	
 EndEvent
 
 
@@ -383,6 +360,7 @@ Function HandleQuestInit()
 	; Register for events
 	RegisterForCustomEvent(WSFW_Main, "PlayerEnteredSettlement")
 	RegisterForCustomEvent(WSFW_Main, "PlayerExitedSettlement")
+	ThreadManager.RegisterForCallbackThreads(Self)
 EndFunction
 
 
@@ -398,7 +376,8 @@ Function HandleGameLoaded()
 	HUDFrameworkManager.RegisterWidget(Self as ScriptObject, sLayerWidgetName, fLayersWidgetX, fLayersWidgetY, false, false)
 	
 	WorkshopScript nearestWorkshop = WorkshopFramework:WSFW_API.GetNearestWorkshop(PlayerRef)
-	if(PlayerRef.IsWithinBuildableArea(nearestWorkshop))
+	; 1.0.3 - Sanity check to nearestWorkshop
+	if(nearestWorkshop && PlayerRef.IsWithinBuildableArea(nearestWorkshop))
 		UpdateLayerWidget(abShow = true)
 		
 		if(CurrentSettlementLayers == None) ; This could happen if player loaded game in a settlement the first time they installed this
@@ -429,13 +408,15 @@ Function UpdateLayerWidget(Bool abShow = true, Bool abJustDoMultipleLayerCheck =
 	Bool bPreviousMultipleLayersExisted = bMultipleLayersExist
 	
 	bMultipleLayersExist = false
-	while(i < CurrentSettlementLayers.Layers.Length && ! bMultipleLayersExist)
-		if(CurrentSettlementLayers.Layers[i].bEnabled)
-			bMultipleLayersExist = true
-		endif
-		
-		i += 1
-	endWhile
+	if(CurrentSettlementLayers) ; 1.0.2 - Skip this check if layers aren't setup yet
+		while(i < CurrentSettlementLayers.Layers.Length && ! bMultipleLayersExist)
+			if(CurrentSettlementLayers.Layers[i].bEnabled)
+				bMultipleLayersExist = true
+			endif
+			
+			i += 1
+		endWhile
+	endif
 	
 	if(bMultipleLayersExist == bPreviousMultipleLayersExisted && abJustDoMultipleLayerCheck)
 		; Nothing changed
@@ -494,6 +475,11 @@ Function UpdateAllLayersOnHUD()
 EndFunction
 
 Function UpdateLayerOnHUD(WorkshopPlus:WorkshopLayer akLayerRef, Bool abDelete = false)
+	; 1.0.2 - If the player left the settlement we don't need to update it right now
+	if( ! CurrentSettlementLayers || CurrentSettlementLayers != GetLayerHolderFromLayer(akLayerRef))
+		return 
+	endif
+	
 	int iShow = 0
 	if( ! abDelete)
 		iShow = 1
@@ -624,6 +610,7 @@ WorkshopPlus:SettlementLayers Function SetupSettlementLayers_Lock(WorkshopScript
 			kLayerHolderRef.DefaultLayer.bShown = true
 			kLayerHolderRef.DefaultLayer.bActive = true
 			kLayerHolderRef.DefaultLayer.bEnabled = true
+			kLayerHolderRef.DefaultLayer.iWorkshopID = kLayerHolderRef.iWorkshopID
 			
 			UpdateLayerOnHUD(kLayerHolderRef.DefaultLayer)
 			
@@ -835,6 +822,11 @@ Function ShowLayer_Lock(WorkshopPlus:WorkshopLayer akLayerRef = None, Bool abGet
 			ModTrace("[WSPlus] Could not show layer " + akLayerRef + ", the ref is missing or is not the correct type.")
 		endif
 		
+		return
+	endif
+	
+	; 1.0.2 - Prevent show all layers from revealing "deleted" layers
+	if( ! akLayerRef.bEnabled)
 		return
 	endif
 	
@@ -1061,8 +1053,17 @@ Function SendChatterToLayer(WorkshopPlus:WorkshopLayer akLayerRef, Float afChatt
 EndFunction
 
 
+WorkshopPlus:SettlementLayers Function GetCurrentSettlementLayers()
+	if( ! CurrentSettlementLayers)
+		CurrentSettlementLayers = ResourceManager.Workshops[gCurrentWorkshop.GetValueInt()].GetLinkedRef(LayerHolderLinkKeyword) as WorkshopPlus:SettlementLayers
+	endif
+	
+	return CurrentSettlementLayers
+EndFunction
+
 Bool Function CanBeAddedToLayer(ObjectReference akNewItem)
-	if(akNewItem.HasKeyword(AddedToLayerKeyword) || akNewItem.HasKeyword(WorkshopKeyword) || (akNewItem as WorkshopNPCScript && ! (akNewItem as WorkshopObjectActorScript)))
+	; 1.0.2 - Short this if None sent
+	if( ! akNewItem || akNewItem.HasKeyword(AddedToLayerKeyword) || akNewItem.HasKeyword(LayerHandleKeyword) || akNewItem.HasKeyword(WorkshopKeyword) || (akNewItem as WorkshopNPCScript && ! (akNewItem as WorkshopObjectActorScript)))
 		return false
 	endif
 	
@@ -1106,12 +1107,15 @@ Function AddItemToLayer_Lock(ObjectReference akNewItem, WorkshopPlus:WorkshopLay
 		endif
 	endif
 	
+	; Set AV to mark item with layer ID in case we need to rebuild the linked ref chain, or in the future, we might need to allow certain items to be pulled from the ref chain so they aren't disabled/enabled
+	akNewItem.SetValue(LayerID, akLayerRef.iLayerID)
+
 	; Tag item so it doesn't ever get added to multiple layers simultaneously
 	akNewItem.AddKeyword(AddedToLayerKeyword)
-	
+
 	; Move finished turn off layer flash
 	ShaderFlashLayer.Stop(akNewItem)
-		
+
 	; Add item to end of linked ref chain
 	ObjectReference kPreviousItem = akLayerRef.kLastCreatedItem
 	akLayerRef.kLastCreatedItem = akNewItem
@@ -1129,10 +1133,12 @@ Function AddItemToLayer_Lock(ObjectReference akNewItem, WorkshopPlus:WorkshopLay
 			akNewItem.SetLinkedRef(thisWorkshop, WorkshopItemKeyword)
 		endif
 	endif
-	
-	; Set AV to mark item with layer ID in case we need to rebuild the linked ref chain, or in the future, we might need to allow certain items to be pulled from the ref chain so they aren't disabled/enabled
-	akNewItem.SetValue(LayerID, akLayerRef.iLayerID)
-	
+
+	; 1.0.2 - Support for layer handles
+	if(akLayerRef.LayerHandle && ActionManager.kGrabbedRef != (akLayerRef.LayerHandle as WorkshopPlus:ObjectReferences:LayerHandle).kControlledRef)
+		akNewItem.SetLinkedRef(akLayerRef.LayerHandle, HandleLinkKeyword)
+	endif
+
 	if( ! akLayerRef.bShown)
 		akNewItem.Disable(false)
 	elseif(akLayerRef.CurrentHighlightShader != None)
@@ -1191,6 +1197,9 @@ Function RemoveItemFromLayer_Lock(ObjectReference akRemoveItemRef, WorkshopPlus:
 	if(akRemoveItemRef == akRemoveFromLayerRef.kLastCreatedItem)
 		akRemoveFromLayerRef.kLastCreatedItem = kChainParentRef
 	endif
+	
+	; 1.0.2 - Support for layer handles
+	akRemoveItemRef.SetLinkedRef(None, HandleLinkKeyword)
 	
 	if(akRemoveFromLayerRef.CurrentHighlightShader != None)
 		akRemoveFromLayerRef.CurrentHighlightShader.Stop(akRemoveItemRef)
@@ -1451,25 +1460,21 @@ Function SwitchToNextLayer()
 		if(CurrentSettlementLayers.Layers.Length > 0)
 			int iIndex = CurrentSettlementLayers.Layers.Find(CurrentSettlementLayers.ActiveLayer)
 			
-			if(iIndex == CurrentSettlementLayers.Layers.Length - 1)
-				; Last layer, switch to default
-				MakeActiveLayer(CurrentSettlementLayers.DefaultLayer)
-			else
-				int i = iIndex + 1
-				int iNextEnabledIndex = -1
-				while(i < CurrentSettlementLayers.Layers.Length && iNextEnabledIndex < 0)
-					if(CurrentSettlementLayers.Layers[i].bEnabled)
-						iNextEnabledIndex = i
-					endif
-					
-					i += 1
-				endWhile
-			
-				if(iNextEnabledIndex >= 0 && iNextEnabledIndex != iIndex)
-					MakeActiveLayer(CurrentSettlementLayers.Layers[iNextEnabledIndex])
-				else
-					MakeActiveLayer(CurrentSettlementLayers.DefaultLayer)
+			; 1.0.2 - Fixed some logic in this code
+			int i = iIndex + 1
+			int iNextEnabledIndex = -1
+			while(i < CurrentSettlementLayers.Layers.Length && iNextEnabledIndex < 0)
+				if(CurrentSettlementLayers.Layers[i].bEnabled)
+					iNextEnabledIndex = i
 				endif
+				
+				i += 1
+			endWhile
+		
+			if(iNextEnabledIndex >= 0 && iNextEnabledIndex != iIndex)
+				MakeActiveLayer(CurrentSettlementLayers.Layers[iNextEnabledIndex])
+			else
+				MakeActiveLayer(CurrentSettlementLayers.DefaultLayer)
 			endif
 		else
 			NoOtherLayersToSwitchTo.Show()
@@ -1632,6 +1637,18 @@ Bool Function LayerDeleted(WorkshopPlus:WorkshopLayer akLayerRef, Bool abPromptP
 		endif		
 	endif
 	
+	if(akLayerRef.LayerHandle)
+		; Scrap the handle
+		WorkshopFramework:ObjectRefs:Thread_ScrapObject kThreadRef = ThreadManager.CreateThread(Thread_ScrapObject) as WorkshopFramework:ObjectRefs:Thread_ScrapObject
+				
+		if(kThreadRef)
+			kThreadRef.kScrapMe = akLayerRef.LayerHandle
+			akLayerRef.LayerHandle = None
+			
+			ThreadManager.QueueThread(kThreadRef)
+		endif
+	endif
+	
 	ClearLayer_Lock(akLayerRef, kMoveItemsToLayerRef)
 	
 	return true
@@ -1675,6 +1692,7 @@ Function DuplicateActiveLayer_Lock()
 		NoItemsOnThisLayerToDuplicate.Show()
 		return
 	endif
+
 	
 	WorkshopScript thisWorkshop = ResourceManager.Workshops[CurrentSettlementLayers.iWorkshopID]
 	
@@ -1698,21 +1716,25 @@ Function DuplicateActiveLayer_Lock()
 		return
 	endif
 	
-	; Attempt to create a layer, if none available - offer to copy items to existing layer
-	ObjectReference kLastItemOnLayer = CurrentSettlementLayers.ActiveLayer.kLastCreatedItem
-	; Get current layer index - we'll count not found as the default layer - in which case -1 will work for our purposes
-	Int iActiveLayerIndex = CurrentSettlementLayers.Layers.Find(CurrentSettlementLayers.ActiveLayer)
+	ObjectReference kCopyMe = CurrentSettlementLayers.ActiveLayer.kLastCreatedItem
+	
 	; Store our current layer for comparison
 	WorkshopPlus:WorkshopLayer kCopyFromLayerRef = CurrentSettlementLayers.ActiveLayer
+	; Get current layer index - we'll count not found as the default layer - in which case -1 will work for our purposes
+	Int iActiveLayerIndex = CurrentSettlementLayers.Layers.Find(kCopyFromLayerRef)
 	
+	; Attempt to create a layer, if none available - offer to copy items to an existing layer
 	; Add Layer
-	AddLayer(abGetLock = false)
+	if( ! TryToActivateDisabledLayer())
+		AddLayer(abGetLock = false)
+	endif
 	; Now lets compare and make sure a layer was added
 	WorkshopPlus:WorkshopLayer kCopyToLayerRef = CurrentSettlementLayers.ActiveLayer
+	Int iTargetLayerIndex = CurrentSettlementLayers.Layers.Find(kCopyToLayerRef)
 	
 	if(kCopyFromLayerRef == kCopyToLayerRef)
 		; Offer layer select
-		CurrentActiveLayerIndex.SetValue(iActiveLayerIndex)
+		CurrentActiveLayerIndex.SetValue(iActiveLayerIndex) ; Make sure the current layer isn't offered or it will create an infinite loop
 		CurrentLayerCount.SetValue(CurrentSettlementLayers.Layers.Length)
 		
 		Int iSelect = DuplicateActiveLayerChooseTargetLayerConfirm.Show()
@@ -1722,70 +1744,52 @@ Function DuplicateActiveLayer_Lock()
 			bDuplicateLayerBlock = false
 		else
 			iSelect = DisplayLayerSelect(true, false)
+			
+			if(iSelect <= 0)
+				; Canceled layer select
+				bDuplicateLayerBlock = false
+			elseif(iSelect == 1)
+				iTargetLayerIndex = 0
+			else
+				iTargetLayerIndex = iSelect - 1
+			endif
 		endif
-		
-		if(iSelect <= 0)
-			; Canceled layer select
-			bDuplicateLayerBlock = false
-		elseif(iSelect == 1)
-			kCopyToLayerRef = CurrentSettlementLayers.DefaultLayer
+	else
+		; We need to reframe the index based on the fact that the RefCollections are indexed with 0 = Default Layer
+		if(iTargetLayerIndex < 0)
+			iTargetLayerIndex = 0
 		else
-			kCopyToLayerRef = CurrentSettlementLayers.Layers[iSelect - 2]
+			iTargetLayerIndex += 1
 		endif
 	endif
 	
 	if(bDuplicateLayerBlock && kCopyToLayerRef)
-		WorldObject[] CopyMe = new WorldObject[0]
-		int iDuplicateEventID = 0
-		
-		; Store layer we're duplicating to
-		ExpectingDuplicatesLayerRef = kCopyToLayerRef
-		
-		; Let player know duplication has started
-		DuplicatingLayer.Show()
-		
-		while(kLastItemOnLayer)
-			WorldObject thisWorldObject = new WorldObject
+		; 1.0.2 - Threading the entire operation
+		if(kCopyMe.GetLinkedRef(LayerItemLinkChainKeyword) != None)
+			; At least two items, set up an UndoHelper - Note this will overwrite the last one for this layer, so if the player tries to spam this, they will have issues with items not ending up part of the undo block
+			ActionManager.PrepareUndoHelper(CurrentSettlementLayers.iWorkshopID, iTargetLayerIndex)
 			
-			thisWorldObject.ObjectForm = kLastItemOnLayer.GetBaseObject()
-			thisWorldObject.fPosX = kLastItemOnLayer.X
-			thisWorldObject.fPosY = kLastItemOnLayer.Y
-			thisWorldObject.fPosZ = kLastItemOnLayer.Z
-			thisWorldObject.fAngleX = kLastItemOnLayer.GetAngleX()
-			thisWorldObject.fAngleY = kLastItemOnLayer.GetAngleY()
-			thisWorldObject.fAngleZ = kLastItemOnLayer.GetAngleZ()
-			thisWorldObject.fScale = kLastItemOnLayer.GetScale()
-			
-			CopyMe.Add(thisWorldObject)
-			
-			if(CopyMe.Length == 125) ; Sending every 125 items instead of 128 because the API breaks up the items into groups in order to allow for the first 3 entries in a var array to hold data about the event
-				ModTrace("[WS Plus]: Sending batch of 125 items to object creator.")
-				iDuplicateEventID = WorkshopFramework:WSFW_API.CreateBatchSettlementObjects(CopyMe, thisWorkshop, None, false, Self)
-				DuplicateEventIDs.Add(iDuplicateEventID)
+			while(kCopyMe != None)
+				ActionManager.CloneWorkshopObject_Threaded(kCopyMe, thisWorkshop, iTargetLayerIndex)
 				
-				CopyMe = new WorldObject[0]
-			endif
-			
-			; Grab next item in chain
-			kLastItemOnLayer = kLastItemOnLayer.GetLinkedRef(LayerItemLinkChainKeyword)
-		endWhile
-		
-		if(CopyMe.Length > 0)
-			ModTrace("[WS Plus]: Sending final batch of " + CopyMe.Length + " items to object creator.")
-			iDuplicateEventID = WorkshopFramework:WSFW_API.CreateBatchSettlementObjects(CopyMe, thisWorkshop, None, true, Self)
-			DuplicateEventIDs.Add(iDuplicateEventID)
-		endif
-		
-		; Reminder - intentionally leaving bDuplicateLayerBlock in place, it will be unflagged when all batch creation events have finished
-	else
-		bDuplicateLayerBlock = false
+				kCopyMe = kCopyMe.GetLinkedRef(LayerItemLinkChainKeyword)
+			endWhile	
+		else
+			; Single item, just use ActionManager's simple clone
+			ActionManager.CloneWorkshopObject(kCopyMe, thisWorkshop)
+		endif		
 	endif	
 	
+	bDuplicateLayerBlock = false	
+		
 	; Release Edit Lock
 	if(ReleaseLock(iLockKey) < GENERICLOCK_KEY_NONE )
 		ModTrace("Failed to release lock " + iLockKey + "!", 2)
 	endif
+	
+	DuplicateActiveLayerComplete.Show()
 EndFunction
+
 
 
 Function ClearActiveLayer()
@@ -1898,6 +1902,37 @@ Function RemoveAllLayers()
 EndFunction
 
 
+Function PlaceLayerHandle(ObjectReference akPlaceAtRef)
+	if( ! akPlaceAtRef)
+		akPlaceAtRef = PlayerRef
+	endif
+	
+	WorldObject thisWorldObject = new WorldObject
+	
+	thisWorldObject.ObjectForm = PlaceableLayerHandleForm
+	
+	if(akPlaceAtRef == PlayerRef)
+		; Place in front of the player
+		Float fDistanceInFrontOfPlayer = 256.0
+		Float fPlayerAngle = PlayerRef.GetAngleZ()
+		
+		Float fPlayerPosX = PlayerRef.X
+		Float fPlayerPosY = PlayerRef.Y
+		Float fPlayerPosZ = PlayerRef.Z
+		
+		thisWorldObject.fPosX = fPlayerPosX + fDistanceInFrontOfPlayer*Math.Sin(fPlayerAngle)
+		thisWorldObject.fPosY = fPlayerPosY + fDistanceInFrontOfPlayer*Math.Cos(fPlayerAngle)
+		thisWorldObject.fPosZ = fPlayerPosZ
+	else
+		thisWorldObject.fPosX = akPlaceAtRef.X
+		thisWorldObject.fPosY = akPlaceAtRef.Y
+		thisWorldObject.fPosZ = akPlaceAtRef.Z
+	endif
+	
+	PlaceObjectManager.CreateObjectImmediately(thisWorldObject, GetNearestWorkshop(PlayerRef))
+EndFunction
+
+
 Function ShowControlMenu()
 	int iOption = LayerControlMenu.Show()
 	
@@ -1978,17 +2013,31 @@ WorkshopPlus:SettlementLayers Function GetLayerHolderFromLayer(WorkshopPlus:Work
 		while(i < kWorkshops.Length)
 			WorkshopPlus:SettlementLayers thisLayerHolder = kWorkshops[i].GetLinkedRef(LayerHolderLinkKeyword) as WorkshopPlus:SettlementLayers
 			
-			if(thisLayerHolder && thisLayerHolder.iWorkshopID == akLayerRef.iWorkshopID)
-				; Now that we have it, update our layer record
+			; 1.0.2 - Fixing this if section
+			if(thisLayerHolder && thisLayerHolder.DefaultLayer == akLayerRef)
+				; Now that we have it, update our layer record 
 				akLayerRef.iWorkshopID = thisLayerHolder.iWorkshopID
 				
 				return thisLayerHolder
+			else
+				int j = 0
+				while(j < thisLayerHolder.Layers.Length)
+					if(thisLayerHolder.Layers[j] == akLayerRef)
+						; Now that we have it, update our layer record 
+						akLayerRef.iWorkshopID = thisLayerHolder.iWorkshopID
+						
+						return thisLayerHolder
+					endif
+					
+					j += 1
+				endWhile
 			endif
 			
 			i += 1
 		endWhile
 	endif
 EndFunction
+
 
 
 ; ---------------------------------------------
@@ -2179,6 +2228,17 @@ Function Hotkey_RemoveAllLayers()
 EndFunction
 
 
+; 1.0.2 
+Function Hotkey_PlaceLayerHandle()
+	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
+		MustBeInWorkshopModeToUseHotkeys.Show()
+		return
+	endif
+	
+	PlaceLayerHandle(ActionManager.kGrabbedRef)
+EndFunction
+
+
 Function Hotkey_NudgeWidgetUp()
 	Float fIncrement = Setting_LayerWidgetNudgeIncrement.GetValue()
 	HUDFrameworkManager.NudgeWidget(sLayerWidgetName, 0, fIncrement)
@@ -2230,3 +2290,74 @@ EndFunction
 Function MCM_ResetLayerWidgetPositionAndScale()
 	ResetLayerWidgetPositionAndScale()
 EndFunction
+
+
+
+
+
+	; -----------------------------------
+	; -----------------------------------
+	; OBSOLETE - Functions deemed obsolete will be moved down here and will be set to call their replacements if possible. These will always be left functional, but you should not use them any longer if you're starting fresh.
+	; -----------------------------------
+	; -----------------------------------
+
+
+
+; 1.0.2 - Obsolete, maintaining for backwards compatibility
+Int[] DuplicateEventIDs
+WorkshopPlus:WorkshopLayer ExpectingDuplicatesLayerRef
+
+; Handle objects created by workshop framework
+Event WorkshopFramework:PlaceObjectManager.ObjectBatchCreated(WorkshopFramework:PlaceObjectManager akPlaceObjectManagerQuest, Var[] akArgs)
+	ActorValue BatchAV = akArgs[0] as ActorValue 
+	Int iBatchID = akArgs[1] as Int
+	Bool bAdditionalEvents = akArgs[2] as Bool
+	
+	if( ! ExpectingDuplicatesLayerRef)
+		; No layer expecting, just use the default layer
+		ExpectingDuplicatesLayerRef = CurrentSettlementLayers.DefaultLayer
+	endif
+	
+	ModTrace("[WSPlus] Duplicate Layer: ObjectBatchCreated event received.")
+	if(BatchAV == WorkshopFramework:WSFW_API.GetDefaultPlaceObjectsBatchAV())
+		; This event is for us!
+		int iLockKey = GetLock()
+		if(iLockKey <= GENERICLOCK_KEY_NONE)
+			ModTrace("Unable to get lock!", 2)
+			
+			return
+		endif
+		
+		if(ExpectingDuplicatesLayerRef)
+			ModTrace("[WS Plus] Adding batch created items to layer " + ExpectingDuplicatesLayerRef + ".")
+			int i = 3
+			while(i < akArgs.Length)
+				ObjectReference kTemp = akArgs[i] as ObjectReference
+				
+				if(kTemp)
+					AddItemToLayer_Lock(kTemp, ExpectingDuplicatesLayerRef, abGetLock = false)
+				endif
+				
+				i += 1
+			endWhile
+		endif
+		
+		Int iDuplicateEventIndex = DuplicateEventIDs.Find(iBatchID)
+		if(DuplicateEventIDs.Length > 1)
+			DuplicateEventIDs.Remove(iDuplicateEventIndex)
+		elseif(DuplicateEventIDs.Length == 1)
+			; Finished processing a duplicate layer event
+			DuplicateEventIDs = new Int[0]
+			DuplicateActiveLayerComplete.Show()
+		endif
+		
+		if(DuplicateEventIDs == None || DuplicateEventIDs.Length == 0)
+			bDuplicateLayerBlock = false
+		endif
+		
+		; Release Edit Lock
+		if(ReleaseLock(iLockKey) < GENERICLOCK_KEY_NONE )
+			ModTrace("Failed to release lock " + iLockKey + "!", 2)
+		endif
+	endif	
+EndEvent

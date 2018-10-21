@@ -33,6 +33,10 @@ Int WorkshopModeAutoSaveTimerID = 101 Const
 
 Group Controllers
 	WorkshopParentScript Property WorkshopParent Auto Const Mandatory
+	GlobalVariable Property WSFWVersion Auto Const Mandatory
+	{ 1.0.2 - Point to WSFW version global }
+	GlobalVariable Property RequiredWSFWVersion Auto Const Mandatory
+	{ 1.0.2 - Warn player if they have a version mismatch with WSFW }
 EndGroup
 
 Group Assets
@@ -59,6 +63,7 @@ EndGroup
 Group Messages
 	Message Property MustBeInWorkshopModeToUseHotkeys Auto Const Mandatory
 	Message Property CouldNotAutoSave Auto Const Mandatory
+	Message Property WSFWVersionMismatch Auto Const Mandatory
 EndGroup
 
 Group Settings
@@ -279,13 +284,14 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
 				controlLayer = InputEnableLayer.Create()
 				controlLayer.EnableCamSwitch(false)
 				controlLayer.EnableMenu(false)
-		
-				if(PreventFallDamageInWorkshopMode)
-					PreventFallDamage()
-				endif
-				
+						
 				if(FlyInWorkshopMode)
 					EnableFlight()
+					Utility.Wait(1.0) ; Need to wait for race swap before casting any spells
+				endif
+				
+				if(PreventFallDamageInWorkshopMode)
+					PreventFallDamage()
 				endif
 				
 				if(InvisibleInWorkshopMode)
@@ -320,6 +326,11 @@ Function HandleGameLoaded()
 	Parent.HandleGameLoaded()
 	
 	RegisterForMenuOpenCloseEvent("WorkshopMenu")
+	
+	; 1.0.2 - We've started adding features that require a specific version of the framework
+	if(RequiredWSFWVersion.GetValue() > WSFWVersion.GetValue())
+		WSFWVersionMismatch.Show()
+	endif
 EndFunction
 
 
@@ -385,9 +396,19 @@ Function FreezeTime()
 	
 	TimeScale.SetValue(fFrozenTimeScale)
 	
+	Bool bIsGhost = PlayerRef.IsGhost()
+	
+	if(bIsGhost)
+		PlayerRef.SetGhost(false)
+	endif
+	
 	FreezeTimeSpell.Cast(PlayerRef)
 	
 	bTimeFrozen = true
+	
+	if(bIsGhost)
+		PlayerRef.SetGhost(true)
+	endif
 EndFunction
 
 
@@ -448,10 +469,20 @@ EndFunction
 
 Function EnableInvisibility()
 	if(WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
+		Bool bIsGhost = PlayerRef.IsGhost()
+		
+		if(bIsGhost)
+			PlayerRef.SetGhost(false)
+		endif
+	
 		InvisibilitySpell.Cast(PlayerRef)
 		PlayerRef.AddPerk(UndetectablePerk)
 		
 		bInvisibilityBuffApplied = true
+		
+		if(bIsGhost)
+			PlayerRef.SetGhost(true)
+		endif
 	endif
 EndFunction
 
@@ -465,9 +496,18 @@ EndFunction
 
 Function EnableCarryWeightBoost()
 	if(WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		BoostCarryWeightSpell.Cast(PlayerRef)
+		Bool bIsGhost = PlayerRef.IsGhost()
 		
+		if(bIsGhost)
+			PlayerRef.SetGhost(false)
+		endif
+		
+		BoostCarryWeightSpell.Cast(PlayerRef)
 		bBoostCarryWeightBuffApplied = true
+		
+		if(bIsGhost)
+			PlayerRef.SetGhost(true)
+		endif
 	endif
 EndFunction
 
@@ -481,7 +521,17 @@ EndFunction
 Function IncreaseSpeed()
 	if(WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
 		if(SpeedSpellIndex >= 0 && SpeedSpells.Length > SpeedSpellIndex)
+			Bool bIsGhost = PlayerRef.IsGhost()
+		
+			if(bIsGhost)
+				PlayerRef.SetGhost(false)
+			endif
+			
 			SpeedSpells[SpeedSpellIndex].Cast(PlayerRef)
+			
+			if(bIsGhost)
+				PlayerRef.SetGhost(true)
+			endif
 		endif
 		
 		bSpeedBuffApplied = true

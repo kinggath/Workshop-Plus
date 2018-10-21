@@ -29,10 +29,14 @@ Bool Property bDeletedByManager = false Auto Hidden ; Flag in case we need to de
 
 Function Disable(Bool abFade = false)
 	Cleanup()
+	
+	Parent.Disable(abFade) ; 1.0.2 - Ensure actual disable takes place
 EndFunction
 
 Function DisableNoWait(Bool abFade = false)
 	Cleanup()
+	
+	Parent.DisableNoWait(abFade) ; 1.0.2 - Ensure actual disable takes place
 EndFunction
 
 Function Cleanup()
