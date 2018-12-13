@@ -40,6 +40,8 @@ Group Controllers
 EndGroup
 
 Group Assets
+	SoundCategory Property PlayerFootsteps Auto Const Mandatory
+	{ 1.0.3 - Disabling footsteps while flight is on }
 	Race Property FloatingRace Auto Const Mandatory
 	Race Property HumanRace Auto Const Mandatory
 	Spell Property InvisibilitySpell Auto Const Mandatory
@@ -52,6 +54,8 @@ Group Assets
 	GlobalVariable Property TimeScale Auto Const Mandatory
 	Spell Property BoostCarryWeightSpell Auto Const Mandatory
 	Spell Property FreezeTimeSpell Auto Const Mandatory
+	Spell Property RadResistSpell Auto Const Mandatory
+	{ 1.0.3 - Adding rad resistance to invulnerability }
 	Keyword Property JetpackKeyword Auto Const Mandatory
 EndGroup
 
@@ -76,6 +80,8 @@ Group Settings
 	GlobalVariable Property Setting_AutoSaveReturnToWorkshopModeDelay Auto Const Mandatory
 	GlobalVariable Property Setting_FreezeTimeInWorkshopMode Auto Const Mandatory
 	GlobalVariable Property Setting_BoostCarryWeightInWorkshopMode Auto Const Mandatory
+	GlobalVariable Property Settings_ShowHotkeyWarnings Auto Const Mandatory
+	{ 1.0.4 }
 EndGroup
 
 
@@ -261,6 +267,7 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
 				DisableCarryWeightBoost()
 				UnfreezeTime()
 				PlayerRef.SetGhost(false)
+				PlayerRef.DispelSpell(RadResistSpell)
 				StartTimer(fFallDamagePreventionTime, DelayedFallDamageTimerID)		
 
 				if(bWasFlying)
@@ -311,6 +318,7 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
 				endif
 				
 				if(InvulnerableInWorkshopMode)
+					RadResistSpell.Cast(PlayerRef)
 					PlayerRef.SetGhost(true)
 				endif
 			endif
@@ -371,9 +379,11 @@ Function ToggleInvulnerable()
 	if(PlayerRef.IsGhost())
 		InvulnerableInWorkshopMode = false
 		PlayerRef.SetGhost(false)
+		PlayerRef.DispelSpell(RadResistSpell)
 	else
 		InvulnerableInWorkshopMode = true
-		PlayerRef.SetGhost(true)
+		RadResistSpell.Cast(PlayerRef)
+		PlayerRef.SetGhost(true)		
 	endif
 EndFunction
 
@@ -440,6 +450,7 @@ Function EnableFlight()
 	if(WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode() && PlayerRef.GetRace() == LastKnownRace)
 		Game.ForceFirstPerson()
 		PlayerRef.SetRace(FloatingRace)
+		PlayerFootsteps.Mute()
 		
 		if(bFirstTimeEnteringEver && ! PlayerRef.IsInInterior())
 			; For new users, let's show them you can fly
@@ -455,8 +466,11 @@ Function EnableFlight()
 	endif
 EndFunction
 
+
 Function DisableFlight()
 	if(PlayerRef.GetRace() == FloatingRace)
+		PlayerFootsteps.UnMute()
+		
 		if(LastKnownRace)
 			PlayerRef.SetRace(LastKnownRace)
 			LastKnownRace = None
@@ -612,7 +626,7 @@ EndFunction
 
 Function Hotkey_ToggleFlight()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -622,7 +636,7 @@ EndFunction
 
 Function Hotkey_ToggleSpeed()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -632,7 +646,7 @@ EndFunction
 
 Function Hotkey_ToggleFreezeTime()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -642,4 +656,12 @@ EndFunction
 
 Function Hotkey_ExitWorkshopModeAndSave()
 	ExitWorkshopModeAndSave()
+EndFunction
+
+
+; Added 1.0.4
+Function ShowHotkeyWarning()
+	if(Settings_ShowHotkeyWarnings.GetValue() == 1.0)
+		ShowHotkeyWarning()
+	endif
 EndFunction

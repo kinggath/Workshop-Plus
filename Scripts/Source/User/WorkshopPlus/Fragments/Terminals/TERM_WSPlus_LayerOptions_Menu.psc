@@ -169,6 +169,22 @@ Setting_ClearHighlightingOutsideWSMode.SetValue(1.0)
 EndFunction
 ;END FRAGMENT
 
+;BEGIN FRAGMENT Fragment_Terminal_22
+Function Fragment_Terminal_22(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_FlashItemsAddedToLayers.SetValue(0.0)
+;END CODE
+EndFunction
+;END FRAGMENT
+
+;BEGIN FRAGMENT Fragment_Terminal_23
+Function Fragment_Terminal_23(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_FlashItemsAddedToLayers.SetValue(1.0)
+;END CODE
+EndFunction
+;END FRAGMENT
+
 ;END FRAGMENT CODE - Do not edit anything between this and the begin comment
 
 GlobalVariable Property Setting_AutoChangeLayers Auto Const
@@ -180,3 +196,5 @@ GlobalVariable Property Setting_AutoUnhideLayerDelay Auto Const
 GlobalVariable Property Setting_LayerSounds Auto Const
 
 GlobalVariable Property Setting_ClearHighlightingOutsideWSMode Auto Const
+
+GlobalVariable Property Setting_FlashItemsAddedToLayers Auto Const

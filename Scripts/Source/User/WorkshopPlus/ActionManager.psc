@@ -87,6 +87,8 @@ Group Keywords
 	{ 1.0.2 - Keyword to attach items to undo helpers }
 	Keyword Property LayerHandleKeyword Auto Const Mandatory
 	{ 1.0.2 - Keyword to identify an object as a layer handle }
+	Keyword Property BlueprintControllerKeyword Auto Const Mandatory
+	{ 1.0.3 - Keyword to identify an object as a blueprint controller }
 EndGroup
 
 Group Aliases
@@ -118,6 +120,8 @@ EndGroup
 Group Settings
 	GlobalVariable Property Setting_CloneLayerHandleMethod Auto Const Mandatory
 	{ 1.0.2 - Gives the player control for how cloning layer handles works. 0 = Just create on current layer, 1 = Create new layer if possible, 2 = ask me each time }
+	GlobalVariable Property Settings_ShowHotkeyWarnings Auto Const Mandatory
+	{ 1.0.4 }
 EndGroup
 
 
@@ -161,6 +165,12 @@ ObjectReference[] Property UndoHelperHolder Auto Hidden
 
 Event ObjectReference.OnWorkshopObjectGrabbed(ObjectReference akWorkshopRef, ObjectReference akReference)
 	kGrabbedRef = akReference
+	
+	if(kGrabbedRef.HasKeyword(LayerHandleKeyword) || kGrabbedRef.HasKeyword(BlueprintControllerKeyword))
+		RegisterForRemoteEvent(akReference, "OnWorkshopObjectMoved")
+		UnregisterForRemoteEvent(akWorkshopRef, "OnWorkshopObjectMoved")
+		LayerManager.UnregisterForRemoteEvent(akWorkshopRef, "OnWorkshopObjectMoved")
+	endif
 EndEvent
 
 
@@ -179,6 +189,13 @@ EndEvent
 
 Event ObjectReference.OnWorkshopObjectMoved(ObjectReference akWorkshopRef, ObjectReference akReference)
 	if(kGrabbedRef == akReference) ; 1.0.2 - Ensure we clear the grabbed ref once it's no longer grabbed
+		kGrabbedRef = None
+	endif
+	
+	if(kGrabbedRef == akWorkshopRef) ; 1.0.3 - In order to prevent event spamming, we unregister for move events when using a layer handle but register for it specifically on the handle. Meaning the first arg will be the handle.
+		UnregisterForRemoteEvent(kGrabbedRef, "OnWorkshopObjectMoved")
+		RegisterForRemoteEvent(akReference, "OnWorkshopObjectMoved")
+		LayerManager.RegisterForRemoteEvent(akReference, "OnWorkshopObjectMoved")
 		kGrabbedRef = None
 	endif
 	
@@ -1179,7 +1196,7 @@ EndFunction
 
 Function Hotkey_Redo()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -1189,7 +1206,7 @@ EndFunction
 
 Function Hotkey_Undo()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -1199,9 +1216,17 @@ EndFunction
 
 Function Hotkey_CloneGrabbed()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
 	CloneGrabbed()
+EndFunction
+
+
+; Added 1.0.4
+Function ShowHotkeyWarning()
+	if(Settings_ShowHotkeyWarnings.GetValue() == 1.0)
+		ShowHotkeyWarning()
+	endif
 EndFunction
