@@ -31,6 +31,7 @@ String sLayerWidgetName = "WSPlus_Layers.swf" Const
 int iLayerWidgetCommand_ShowWidget = 201 Const
 int iLayerWidgetCommand_HideWidget = 202 Const
 int iLayerWidgetCommand_UpdateLayer = 401 Const
+int iLayerWidgetCommand_UpdateToggleIcons = 402 Const
 
 Float fLayerWidgetDefault_PositionX = 1100.0 Const
 Float fLayerWidgetDefault_PositionY = 150.0 Const
@@ -45,9 +46,11 @@ Group Controllers
 	WorkshopFramework:WorkshopResourceManager Property ResourceManager Auto Const Mandatory
 	WorkshopFramework:PlaceObjectManager Property PlaceObjectManager Auto Const Mandatory
 	WorkshopFramework:MainQuest Property WSFW_Main Auto Const Mandatory
-	WorkshopFramework:HUDFrameworkManager Property HUDFrameworkManager Auto Const Mandatory
 	WorkshopPlus:MainQuest Property WSPlus_Main Auto Const Mandatory
 	WorkshopPlus:ActionManager Property ActionManager Auto Const Mandatory
+	WorkshopPlus:BlueprintManager Property BlueprintManager Auto Const Mandatory
+	{ 1.0.3 - Support for blueprinting }
+	WorkshopFramework:HUDFrameworkManager Property HUDFrameworkManager Auto Const Mandatory
 	Form Property Thread_ScrapObject Auto Const Mandatory
 	GlobalVariable Property gCurrentWorkshop Auto Const Mandatory
 	{ Point to currentWorkshopId global controlled by WorkshopParent }
@@ -88,6 +91,8 @@ Group Globals
 	GlobalVariable Property AllowLayerHandlingCancellation Auto Const Mandatory
 	GlobalVariable Property CurrentActiveLayerIndex Auto Const Mandatory
 	GlobalVariable Property CurrentLayerCount Auto Const Mandatory
+	GlobalVariable[] Property gIncludeLayersInMenu Auto Const
+	{ Global toggle for layer select entries, should be one for each layer (with the exception of default) }
 EndGroup
 
 Group Keyword
@@ -103,6 +108,8 @@ Group Keyword
 	{ 1.0.2 - Keyword to identify an object as a layer handle }
 	Keyword Property UndoHelperLinkKeyword Auto Const Mandatory
 	{ 1.0.2 - Link mass duplicated objects to an undo helper }
+	Keyword Property PreventAddingToLayersKeyword Auto Const Mandatory
+	{ We'll use the vanilla keyword ActorPreventSubsegmentDamage so that any mod can exempt their items }
 EndGroup
 
 Group Messages
@@ -127,7 +134,13 @@ Group Messages
 	Message Property LayerUnlinkingStarted Auto Const Mandatory
 	Message Property LayerUnlinkingComplete Auto Const Mandatory
 	Message Property LayerControlMenu Auto Const Mandatory
-	Message Property LayerControlMenu_Advanced Auto Const Mandatory
+	Message Property LayerControlMenu_Advanced Auto Const Mandatory	
+	Message Property CouldNotFindTheLayerYouSelectedUsingDefaultLayer Auto Const Mandatory
+	{ 1.0.4 }
+	Message Property NoLayerFoundToMoveItemsTo Auto Const Mandatory
+	{ 1.0.4 }
+	Message Property CouldNotFindSettlement Auto Const Mandatory
+	{ 1.0.4 }
 EndGroup
 
 
@@ -142,6 +155,12 @@ Group Settings
 	GlobalVariable Property Setting_UnlinkHiddenLayers Auto Const Mandatory
 	GlobalVariable Property Setting_LayerHUDInWorkshopModeOnly Auto Const Mandatory
 	GlobalVariable Property Setting_ClearLayerHighlightingOnExitWorkshopMode Auto Const Mandatory
+	GlobalVariable Property Setting_HighlightItemsAddedToDefaultLayer Auto Const Mandatory
+	{ 1.0.4 - Starting this off as it's very odd to see everything flash purple when you first enter a settlement }
+	GlobalVariable Property Setting_HighlightItemsAddedToLayer Auto Const Mandatory
+	{ 1.0.4 }
+	GlobalVariable Property Settings_ShowHotkeyWarnings Auto Const Mandatory
+	{ 1.0.4 }
 EndGroup
 
 ; ---------------------------------------------
@@ -327,15 +346,15 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
 		if( ! abOpening) ; Leaving workshop menu
 			if( ! WSPlus_Main.IsGameSaving)
 				; Player left WS Mode, clear the highlighting
-				if(Setting_ClearLayerHighlightingOnExitWorkshopMode.GetValue() == 1)
+				if(Setting_ClearLayerHighlightingOnExitWorkshopMode.GetValue() == 1.0)
 					ClearAllHighlighting()
 				endif
 				
-				if(Setting_LayerHUDInWorkshopModeOnly.GetValue() == 1)
+				if(Setting_LayerHUDInWorkshopModeOnly.GetValue() == 1.0)
 					UpdateLayerWidget(abShow = false)
 				endif
 				
-				if(Setting_AutoUnhideLayersOnExitWorkshopMode.GetValue() == 1)
+				if(Setting_AutoUnhideLayersOnExitWorkshopMode.GetValue() == 1.0)
 					StartTimer(Setting_AutoUnhideLayersDelay.GetValue(), iAutoUnhideLayersTimerID)
 				endif
 			endif
@@ -350,6 +369,12 @@ EndEvent
 ; ---------------------------------------------
 ; Functions
 ; --------------------------------------------- 
+
+; 1.0.3 - Give lock longer than the default time, we're going to be hitting it frequently when the player does batch operations such as blueprints or layer cloning.
+Int Function GetMaxLockWaitCount()
+	; Override 
+	return 200
+EndFunction
 
 Function HandleQuestInit()
 	Parent.HandleQuestInit()
@@ -434,6 +459,7 @@ Function UpdateLayerWidget(Bool abShow = true, Bool abJustDoMultipleLayerCheck =
 		HUDFrameworkManager.SetWidgetPosition(sLayerWidgetName, fLayersWidgetX, fLayersWidgetY)
 		HUDFrameworkManager.SetWidgetScale(sLayerWidgetName, fLayersWidgetScale, fLayersWidgetScale)
 		
+		UpdateHUDToggleIcons()
 		;Debug.MessageBox("Showing layer hud")
 	else
 		;/
@@ -529,6 +555,16 @@ Function UpdateLayerOnHUD(WorkshopPlus:WorkshopLayer akLayerRef, Bool abDelete =
 EndFunction
 
 
+; 1.0.3 - Added new section to the UI piece to display features that are enable/disabled
+Function UpdateHUDToggleIcons()
+	; TODO: Display additional toggles that are relevant
+	int iAutoChangeLayerOnMove = Setting_AutoChangeLayerOnMovedObjects.GetValueInt()
+	
+	; Update widget
+	HUDFrameworkManager.SendMessage(sLayerWidgetName, iLayerWidgetCommand_UpdateToggleIcons, iAutoChangeLayerOnMove)
+EndFunction
+
+
 ; Called by HUDFramework
 Function HUD_WidgetLoaded(string asWidgetName)
 	if(asWidgetName == sLayerWidgetName)
@@ -617,6 +653,9 @@ WorkshopPlus:SettlementLayers Function SetupSettlementLayers_Lock(WorkshopScript
 			; We only want one layer holder per settlement, so we'll link workshop to holder
 			akWorkshopRef.SetLinkedRef(kLayerHolderRef, LayerHolderLinkKeyword)
 			
+			
+			; 1.0.4 - Turning this into an optional tool to be run from the menus
+			;/
 			; Copy existing items onto the default layer
 			ObjectReference[] kExistingObjects = akWorkshopRef.GetLinkedRefChildren(WorkshopItemKeyword)
 			
@@ -626,7 +665,7 @@ WorkshopPlus:SettlementLayers Function SetupSettlementLayers_Lock(WorkshopScript
 				
 				i += 1
 			endWhile
-			
+			/;
 			; TODO Sim Settlements: Any items with the CitySpawned keyword should be moved to a separate layer
 			
 			ModTrace("[WSPlus] Successfully configured layer holder for " + akWorkshopRef + ".")
@@ -1063,7 +1102,7 @@ EndFunction
 
 Bool Function CanBeAddedToLayer(ObjectReference akNewItem)
 	; 1.0.2 - Short this if None sent
-	if( ! akNewItem || akNewItem.HasKeyword(AddedToLayerKeyword) || akNewItem.HasKeyword(LayerHandleKeyword) || akNewItem.HasKeyword(WorkshopKeyword) || (akNewItem as WorkshopNPCScript && ! (akNewItem as WorkshopObjectActorScript)))
+	if( ! akNewItem || akNewItem.HasKeyword(PreventAddingToLayersKeyword) || akNewItem.HasKeyword(AddedToLayerKeyword) || akNewItem.HasKeyword(LayerHandleKeyword) || akNewItem.HasKeyword(WorkshopKeyword) || (akNewItem as WorkshopNPCScript && ! (akNewItem as WorkshopObjectActorScript)))
 		return false
 	endif
 	
@@ -1076,13 +1115,11 @@ Function AddItemToLayer_Lock(ObjectReference akNewItem, WorkshopPlus:WorkshopLay
 		return
 	endif
 	
-	
+	WorkshopPlus:SettlementLayers localLayerHolder = GetLayerHolderFromLayer(akLayerRef)
 	if( ! akLayerRef)
 		akLayerRef = CurrentSettlementLayers.ActiveLayer
 	elseif( ! akLayerRef.bEnabled) ; 1.0.1 - Make sure we don't add items to a disabled layer
 		; This layer is disabled, add to that settlement's default layer
-		WorkshopPlus:SettlementLayers localLayerHolder = GetLayerHolderFromLayer(akLayerRef)
-		
 		if(localLayerHolder)
 			akLayerRef = localLayerHolder.DefaultLayer
 			
@@ -1106,6 +1143,9 @@ Function AddItemToLayer_Lock(ObjectReference akNewItem, WorkshopPlus:WorkshopLay
 			return
 		endif
 	endif
+
+	; 1.0.3 - adding counter
+	akLayerRef.iItemCount += 1
 	
 	; Set AV to mark item with layer ID in case we need to rebuild the linked ref chain, or in the future, we might need to allow certain items to be pulled from the ref chain so they aren't disabled/enabled
 	akNewItem.SetValue(LayerID, akLayerRef.iLayerID)
@@ -1113,8 +1153,11 @@ Function AddItemToLayer_Lock(ObjectReference akNewItem, WorkshopPlus:WorkshopLay
 	; Tag item so it doesn't ever get added to multiple layers simultaneously
 	akNewItem.AddKeyword(AddedToLayerKeyword)
 
-	; Move finished turn off layer flash
-	ShaderFlashLayer.Stop(akNewItem)
+	; Flash items as they are added to the layer
+	if(Setting_HighlightItemsAddedToLayer.GetValue() == 1 && localLayerHolder && (akLayerRef != localLayerHolder.DefaultLayer || Setting_HighlightItemsAddedToDefaultLayer.GetValue() == 1))
+		; 1.0.4 - Only do so if the player has turned on the highlight items added to default layer option
+		ShaderFlashLayer.Play(akNewItem, 2.0)
+	endif
 
 	; Add item to end of linked ref chain
 	ObjectReference kPreviousItem = akLayerRef.kLastCreatedItem
@@ -1134,9 +1177,12 @@ Function AddItemToLayer_Lock(ObjectReference akNewItem, WorkshopPlus:WorkshopLay
 		endif
 	endif
 
-	; 1.0.2 - Support for layer handles
-	if(akLayerRef.LayerHandle && ActionManager.kGrabbedRef != (akLayerRef.LayerHandle as WorkshopPlus:ObjectReferences:LayerHandle).kControlledRef)
-		akNewItem.SetLinkedRef(akLayerRef.LayerHandle, HandleLinkKeyword)
+	; 1.0.3 - When building copies of blueprints, we're temporarily using the blueprint controller as the handle, so we can't attach here
+	if(akLayerRef != BlueprintManager.BuildingBlueprintOnLayerRef)
+		; 1.0.2 - Support for layer handles
+		if(akLayerRef.LayerHandle && ActionManager.kGrabbedRef != (akLayerRef.LayerHandle as WorkshopPlus:ObjectReferences:LayerHandle).kControlledRef)
+			akNewItem.SetLinkedRef(akLayerRef.LayerHandle, HandleLinkKeyword)
+		endif
 	endif
 
 	if( ! akLayerRef.bShown)
@@ -1171,6 +1217,9 @@ Function RemoveItemFromLayer_Lock(ObjectReference akRemoveItemRef, WorkshopPlus:
 			return
 		endif
 	endif
+	
+	; 1.0.3 - adding counter
+	akRemoveFromLayerRef.iItemCount -= 1
 	
 	; Untag item so it can be added to a new layer in the future
 	akRemoveItemRef.RemoveKeyword(AddedToLayerKeyword)
@@ -1374,7 +1423,9 @@ Function HighlightLayerItems(WorkshopPlus:WorkshopLayer akLayerRef = None, Effec
 		ObjectReference kNextRef = akLayerRef.kLastCreatedItem
 		while(kNextRef)
 			if( ! aShader)
-				akLayerRef.CurrentHighlightShader.Stop(kNextRef)
+				if(akLayerRef.CurrentHighlightShader) ; 1.0.3 - Confirm we have a shader
+					akLayerRef.CurrentHighlightShader.Stop(kNextRef)
+				endif
 			else
 				aShader.Stop(kNextRef)
 			endif
@@ -1553,6 +1604,23 @@ Int Function DisplayLayerSelect(Bool abAllowCancel = true, Bool abExcludeCurrent
 	CurrentActiveLayerIndex.SetValue(iActiveLayerIndex)
 	CurrentLayerCount.SetValue(CurrentSettlementLayers.Layers.Length)
 	
+	; 1.0.4 - Changing layer select display to individual controls
+	int i = 0
+	while(i < iMaxLayers)
+		if(CurrentSettlementLayers.Layers.Length > i)
+			if( ! CurrentSettlementLayers.Layers[i].bEnabled || abExcludeCurrentLayer && i == iActiveLayerIndex)
+				gIncludeLayersInMenu[i].SetValue(0.0)
+			else
+				gIncludeLayersInMenu[i].SetValue(1.0)
+			endif
+		else
+			gIncludeLayersInMenu[i].SetValue(0.0)
+		endif
+		
+		i += 1
+	endWhile
+	
+	
 	return LayerSelect.Show()
 EndFunction
 
@@ -1584,7 +1652,10 @@ Function DisableLayer_Lock(WorkshopPlus:WorkshopLayer akLayerRef)
 			akLayerRef.bDeletedByManager = true ; Prevent infinite loop of LayerDeleted being called
 			
 			akLayerRef.bEnabled = false
-			SwitchToNextLayer()
+			
+			if( ! bPromptPlayer)
+				SwitchToNextLayer()
+			endif
 		endif
 	endif
 EndFunction
@@ -1627,7 +1698,8 @@ Bool Function LayerDeleted(WorkshopPlus:WorkshopLayer akLayerRef, Bool abPromptP
 			else
 				kMoveItemsToLayerRef = CurrentSettlementLayers.Layers[(iConfirm - 2)]
 				
-				if( ! kMoveItemsToLayerRef)
+				if(kMoveItemsToLayerRef == None)
+					CouldNotFindTheLayerYouSelectedUsingDefaultLayer.Show()
 					; We couldn't find the layer, so just move to default layer
 					kMoveItemsToLayerRef = CurrentSettlementLayers.DefaultLayer
 				endif
@@ -1650,6 +1722,16 @@ Bool Function LayerDeleted(WorkshopPlus:WorkshopLayer akLayerRef, Bool abPromptP
 	endif
 	
 	ClearLayer_Lock(akLayerRef, kMoveItemsToLayerRef)
+	
+	; Ensure we switch to a logical layer
+	if(abPromptPlayer)
+		if(kMoveItemsToLayerRef != None)
+			MakeActiveLayer(kMoveItemsToLayerRef)
+		else
+			SwitchToNextLayer()
+		endif
+	endif
+	
 	
 	return true
 EndFunction
@@ -1817,6 +1899,7 @@ Function ClearActiveLayer()
 			kMoveItemsToLayerRef = CurrentSettlementLayers.Layers[(iConfirm - 2)]
 			
 			if( ! kMoveItemsToLayerRef)
+				CouldNotFindTheLayerYouSelectedUsingDefaultLayer.Show()
 				; We couldn't find the layer, so just move to default layer
 				kMoveItemsToLayerRef = CurrentSettlementLayers.DefaultLayer
 			endif
@@ -1840,16 +1923,17 @@ Function ClearLayer_Lock(WorkshopPlus:WorkshopLayer akLayerRef, WorkshopPlus:Wor
 			return
 		endif
 	
-	
 		ObjectReference kNextRef = akLayerRef.kLastCreatedItem
 		while(kNextRef)
 			ObjectReference kThisRef = kNextRef
 			kNextRef = kThisRef.GetLinkedRef(LayerItemLinkChainKeyword)
 			
 			kThisRef.SetLinkedRef(None, LayerItemLinkChainKeyword)
-			ShaderFlashLayer.Play(kThisRef, 3.0)
+			kThisRef.RemoveKeyword(AddedToLayerKeyword)
 			
 			if(akMoveItemsToLayerRef != None)
+				ModTrace("ClearLayer_Lock adding " + kThisRef + " to layer " + akMoveItemsToLayerRef)
+				
 				AddItemToLayer_Lock(kThisRef, akMoveItemsToLayerRef, abGetLock = false)
 			else
 				WorkshopFramework:ObjectRefs:Thread_ScrapObject kThreadRef = ThreadManager.CreateThread(Thread_ScrapObject) as WorkshopFramework:ObjectRefs:Thread_ScrapObject
@@ -1933,6 +2017,67 @@ Function PlaceLayerHandle(ObjectReference akPlaceAtRef)
 EndFunction
 
 
+; Added 1.0.4 - Will find all items not on a layer yet and add them to the selected layer. This is replacing the automatic system that had been running when players arrived at a settlement
+Function AddPreviousItemsToLayer_Lock(WorkshopScript akWorkshopRef = None)
+	if( ! akWorkshopRef)
+		akWorkshopRef = GetNearestWorkshop(PlayerRef)
+	endif
+	
+	if( ! akWorkshopRef)
+		CouldNotFindSettlement.Show()
+		
+		return
+	endif
+	
+	WorkshopPlus:WorkshopLayer kMoveItemsToLayerRef = None
+	
+	int iConfirm = DisplayLayerSelect(true, false)
+	
+	; Message Entries 0 = Cancel; 1 = Default Layer
+	if(iConfirm == 0)
+		return ; Canceled
+	elseif(iConfirm == 1)
+		kMoveItemsToLayerRef = CurrentSettlementLayers.DefaultLayer
+	else
+		kMoveItemsToLayerRef = CurrentSettlementLayers.Layers[(iConfirm - 2)]
+		
+		if( ! kMoveItemsToLayerRef)
+			CouldNotFindTheLayerYouSelectedUsingDefaultLayer.Show()
+			; We couldn't find the layer, so just move to default layer
+			kMoveItemsToLayerRef = CurrentSettlementLayers.DefaultLayer
+		endif
+	endif
+	
+	if( ! kMoveItemsToLayerRef)
+		NoLayerFoundToMoveItemsTo.Show()
+		return
+	endif
+	
+	int iLockKey = GetLock()
+	if(iLockKey <= GENERICLOCK_KEY_NONE)
+		ModTrace("Unable to get lock!", 2)
+		
+		return
+	endif
+	
+	ObjectReference[] kExistingObjects = akWorkshopRef.GetLinkedRefChildren(WorkshopItemKeyword)
+			
+	int i = 0
+	while(i < kExistingObjects.Length)
+		if(kExistingObjects[i].GetValue(LayerID) == 0.0)
+			AddItemToLayer_Lock(kExistingObjects[i], kMoveItemsToLayerRef, abGetLock = false)
+		endif
+		
+		i += 1
+	endWhile
+	
+	; Release Edit Lock
+	if(ReleaseLock(iLockKey) < GENERICLOCK_KEY_NONE )
+		ModTrace("Failed to release lock " + iLockKey + "!", 2)
+	endif
+EndFunction
+
+
 Function ShowControlMenu()
 	int iOption = LayerControlMenu.Show()
 	
@@ -1984,16 +2129,19 @@ Function ShowControlMenu()
 		elseif(iOption == 5)
 			; Hide all layers
 			HideMultipleLayers_Lock(bInactiveOnly = false)
-		elseif(iOption == 6)			
+		elseif(iOption == 6) ; Added 1.0.4
+			; Add previous items to a layer
+			AddPreviousItemsToLayer_Lock()
+		elseif(iOption == 7)			
 			; Unlink Layer
 			UnlinkLayer_Lock(CurrentSettlementLayers.ActiveLayer)
-		elseif(iOption == 7)			
+		elseif(iOption == 8)			
 			; Relink Layer
 			RelinkLayer_Lock(CurrentSettlementLayers.ActiveLayer)
-		elseif(iOption == 8)
+		elseif(iOption == 9)
 			; Delete Layer
 			DisableActiveLayer()
-		elseif(iOption == 9) ; Exit
+		elseif(iOption == 10) ; Exit
 			return
 		endif
 	elseif(iOption == 8)
@@ -2046,7 +2194,7 @@ EndFunction
 
 Function Hotkey_ToggleActiveLayer()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2056,7 +2204,7 @@ EndFunction
 
 Function Hotkey_ToggleLayerLink()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2066,7 +2214,7 @@ EndFunction
 
 Function Hotkey_ToggleLayerHighlight()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2074,9 +2222,26 @@ Function Hotkey_ToggleLayerHighlight()
 EndFunction
 
 
+; 1.0.3 - Add a hotkey to toggle this setting
+Function Hotkey_ToggleAutoChangeLayersOnMove()
+	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
+		ShowHotkeyWarning()
+		return
+	endif
+	
+	if(Setting_AutoChangeLayerOnMovedObjects.GetValue() == 1.0)
+		Setting_AutoChangeLayerOnMovedObjects.SetValue(0.0)
+	else
+		Setting_AutoChangeLayerOnMovedObjects.SetValue(1.0)
+	endif
+	
+	UpdateHUDToggleIcons()
+EndFunction
+
+
 Function Hotkey_HideInactiveLayers()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2086,7 +2251,7 @@ EndFunction
 
 Function Hotkey_HideAllLayers()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2095,7 +2260,7 @@ EndFunction
 
 Function Hotkey_ShowAllLayers()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2105,7 +2270,7 @@ EndFunction
 
 Function Hotkey_ToggleActiveLayerHighlighting()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2119,7 +2284,7 @@ EndFunction
 
 Function Hotkey_HighlightActiveLayer()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2129,7 +2294,7 @@ EndFunction
 
 Function Hotkey_ClearActiveLayerHighlight()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2138,7 +2303,7 @@ EndFunction
 
 Function Hotkey_ClearAllHighlighting()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2147,7 +2312,7 @@ EndFunction
 
 Function Hotkey_SwitchToNextLayer()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2156,7 +2321,7 @@ EndFunction
 
 Function Hotkey_CreateNewLayer()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2167,7 +2332,7 @@ EndFunction
 
 Function Hotkey_DisableActiveLayer()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2177,7 +2342,7 @@ EndFunction
 
 Function Hotkey_ClearActiveLayer()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2187,7 +2352,7 @@ EndFunction
 
 Function Hotkey_DuplicateActiveLayer()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2200,7 +2365,7 @@ EndFunction
 
 Function Hotkey_UnlinkActiveLayer()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2210,7 +2375,7 @@ EndFunction
 
 Function Hotkey_RelinkActiveLayer()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2220,7 +2385,7 @@ EndFunction
 
 Function Hotkey_RemoveAllLayers()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2231,7 +2396,7 @@ EndFunction
 ; 1.0.2 
 Function Hotkey_PlaceLayerHandle()
 	if( ! WorkshopFramework:WSFW_API.IsPlayerInWorkshopMode())
-		MustBeInWorkshopModeToUseHotkeys.Show()
+		ShowHotkeyWarning()
 		return
 	endif
 	
@@ -2292,7 +2457,18 @@ Function MCM_ResetLayerWidgetPositionAndScale()
 EndFunction
 
 
+; Added 1.0.4
+Function MCM_AddPreviousItemsToLayer()
+	AddPreviousItemsToLayer_Lock()
+EndFunction
 
+
+; Added 1.0.4
+Function ShowHotkeyWarning()
+	if(Settings_ShowHotkeyWarnings.GetValue() == 1.0)
+		ShowHotkeyWarning()
+	endif
+EndFunction
 
 
 	; -----------------------------------

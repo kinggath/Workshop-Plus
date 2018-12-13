@@ -22,6 +22,9 @@ Bool Property bActive = false Auto Hidden
 Bool Property bEnabled = true Auto Hidden
 Bool Property bLinked = true Auto Hidden
 Int Property iWorkshopID = -1 Auto Hidden ; 1.0.1 - Ensure we can figure out where this layer came from if we end up with a ref and aren't positive we're in the CurrentSettlementLayers workshop
+
+Int Property iItemCount = 0 Auto Hidden ; 1.0.3 - This will help us to thread things out
+
 EffectShader Property CurrentHighlightShader = None Auto Hidden
 
 Bool Property bDeletedByManager = false Auto Hidden ; Used by LayerManager to tell the layer it has already taken care of the link chain

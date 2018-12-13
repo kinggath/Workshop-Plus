@@ -145,6 +145,38 @@ Setting_CloneLayerHandleMethod.SetValue(0.0)
 EndFunction
 ;END FRAGMENT
 
+;BEGIN FRAGMENT Fragment_Terminal_19
+Function Fragment_Terminal_19(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_AutoHighlightItemsAddedToDefaultLayer.SetValue(0.0)
+;END CODE
+EndFunction
+;END FRAGMENT
+
+;BEGIN FRAGMENT Fragment_Terminal_20
+Function Fragment_Terminal_20(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_AutoHighlightItemsAddedToDefaultLayer.SetValue(1.0)
+;END CODE
+EndFunction
+;END FRAGMENT
+
+;BEGIN FRAGMENT Fragment_Terminal_21
+Function Fragment_Terminal_21(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_ShowHotkeyWarnings.SetValue(0.0)
+;END CODE
+EndFunction
+;END FRAGMENT
+
+;BEGIN FRAGMENT Fragment_Terminal_22
+Function Fragment_Terminal_22(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_ShowHotkeyWarnings.SetValue(1.0)
+;END CODE
+EndFunction
+;END FRAGMENT
+
 ;END FRAGMENT CODE - Do not edit anything between this and the begin comment
 
 GlobalVariable Property Setting_AutosaveDelay Auto Const
@@ -154,3 +186,7 @@ GlobalVariable Property Setting_AutoUnlinkHiddenLayers Auto Const
 GlobalVariable Property Setting_HighlightLayerHandleSelectedObjects Auto Const
 
 GlobalVariable Property Setting_CloneLayerHandleMethod Auto Const
+
+GlobalVariable Property Setting_AutoHighlightItemsAddedToDefaultLayer Auto Const
+
+GlobalVariable Property Setting_ShowHotkeyWarnings Auto Const
