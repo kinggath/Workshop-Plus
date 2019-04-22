@@ -340,6 +340,14 @@ Event WorkshopFramework:MainQuest.PlayerExitedSettlement(WorkshopFramework:MainQ
 	UpdateLayerWidget(abShow = false)
 EndEvent
 
+Event WorkshopFramework:Library:ThreadRunner.OnThreadCompleted(WorkshopFramework:Library:ThreadRunner akThreadRunner, Var[] akargs)
+	;/
+	akargs[0] = sCustomCallCallbackID
+	akargs[1] = iCallbackID
+	akargs[2] = Result from called function
+	/;
+EndEvent
+
 
 Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
     if(asMenuName== "WorkshopMenu")
