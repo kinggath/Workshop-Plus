@@ -28,6 +28,7 @@ WorkshopPlus:BlueprintManager Property BlueprintManager Auto Const Mandatory
 WorkshopPlus:MainQuest Property WSPlusMain Auto Const Mandatory
 EffectShader Property HighlightShader Auto Const
 Form Property InvisibleWeaponsWorkbench Auto Const Mandatory
+Form Property InvisibleFloorForm Auto Const Mandatory
 Message Property SetBlueprintNameMessage Auto Const Mandatory
 
 ; -
@@ -131,10 +132,15 @@ Function ReleaseObjectReferences()
 		
 		if(iConfirm == 0)
 			ObjectReference PlayerRef = Game.GetPlayer()
+			ObjectReference kTempFloor = PlayerRef.PlaceAtMe(InvisibleFloorForm)
 			WSPlusMain.DisableFlight()
 			
 			ObjectReference kTemp = PlayerRef.PlaceAtMe(InvisibleWeaponsWorkbench)
 			kTemp.Activate(PlayerRef as Actor)
+			
+			Utility.WaitMenuMode(3.0)
+			kTempFloor.Disable(false)
+			kTempFloor.Delete()
 		endif
 		
 		tempLayer.Delete()

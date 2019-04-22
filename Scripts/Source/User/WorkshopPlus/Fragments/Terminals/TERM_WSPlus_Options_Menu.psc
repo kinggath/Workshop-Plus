@@ -201,6 +201,22 @@ Setting_UnlimitedCarryWeight.SetValue(1.0)
 EndFunction
 ;END FRAGMENT
 
+;BEGIN FRAGMENT Fragment_Terminal_26
+Function Fragment_Terminal_26(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_AutoClearWeather.SetValue(0.0)
+;END CODE
+EndFunction
+;END FRAGMENT
+
+;BEGIN FRAGMENT Fragment_Terminal_27
+Function Fragment_Terminal_27(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_AutoClearWeather.SetValue(1.0)
+;END CODE
+EndFunction
+;END FRAGMENT
+
 ;END FRAGMENT CODE - Do not edit anything between this and the begin comment
 
 GlobalVariable Property Setting_AutoSaveTimer Auto Const
@@ -218,3 +234,5 @@ GlobalVariable Property Setting_PreventFallDamage Auto Const
 GlobalVariable Property Setting_FreezeTime Auto Const
 
 GlobalVariable Property Setting_UnlimitedCarryWeight Auto Const
+
+GlobalVariable Property Setting_AutoClearWeather Auto Const Mandatory

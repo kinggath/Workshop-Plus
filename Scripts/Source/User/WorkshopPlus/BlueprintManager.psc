@@ -52,6 +52,7 @@ EndGroup
 Group Assets
 	Form[] Property BlankBlueprintForm Auto Const Mandatory
 	Form Property PlaceableBlueprintControllerForm Auto Const Mandatory
+	Form Property TemporaryFloorForm Auto Const Mandatory
 EndGroup
 
 
@@ -314,6 +315,22 @@ Function ShowBlueprintControlMenu(WorkshopPlus:ObjectReferences:BlueprintControl
 		CurrentActiveLayerIndex.SetValue(-2.0) ; We want all layers to show up in the select
 		CurrentLayerCount.SetValue(TheseSettlementLayers.Layers.Length)
 		
+		; 1.0.5 - In 1.0.4 we changed this menu to have globals for each layer and failed to configure the blueprint manager to use them
+		int i = 0
+		while(i < LayerManager.iMaxLayers)
+			if(TheseSettlementLayers.Layers.Length > i)
+				if( ! TheseSettlementLayers.Layers[i].bEnabled)
+					LayerManager.gIncludeLayersInMenu[i].SetValue(0.0)
+				else
+					LayerManager.gIncludeLayersInMenu[i].SetValue(1.0)
+				endif
+			else
+				LayerManager.gIncludeLayersInMenu[i].SetValue(0.0)
+			endif
+			
+			i += 1
+		endWhile
+		
 		Int iSelect = ExistingLayerSelectMenu.Show()
 		Int iTargetLayerIndex
 		if(iSelect == 0)
@@ -359,6 +376,22 @@ Function ShowBlueprintControlMenu(WorkshopPlus:ObjectReferences:BlueprintControl
 		; Popup layer select menu so player can decide which layer to build on - make it the active layer
 		CurrentActiveLayerIndex.SetValue(-2.0) ; We want all layers to show up in the select
 		CurrentLayerCount.SetValue(TheseSettlementLayers.Layers.Length)
+		
+		; 1.0.5 - 1.0.4 introduced globals to control which layers show up
+		int i = 0
+		while(i < LayerManager.iMaxLayers)
+			if(TheseSettlementLayers.Layers.Length > i)
+				if( ! TheseSettlementLayers.Layers[i].bEnabled)
+					LayerManager.gIncludeLayersInMenu[i].SetValue(0.0)
+				else
+					LayerManager.gIncludeLayersInMenu[i].SetValue(1.0)
+				endif
+			else
+				LayerManager.gIncludeLayersInMenu[i].SetValue(0.0)
+			endif
+			
+			i += 1
+		endWhile
 		
 		Int iSelect = LayerSelectMenu.Show()
 		

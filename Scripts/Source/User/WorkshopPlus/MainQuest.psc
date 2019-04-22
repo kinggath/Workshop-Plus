@@ -57,6 +57,7 @@ Group Assets
 	Spell Property RadResistSpell Auto Const Mandatory
 	{ 1.0.3 - Adding rad resistance to invulnerability }
 	Keyword Property JetpackKeyword Auto Const Mandatory
+	Weather Property CommonwealthClear Auto Const Mandatory
 EndGroup
 
 Group ActorValues
@@ -82,6 +83,7 @@ Group Settings
 	GlobalVariable Property Setting_BoostCarryWeightInWorkshopMode Auto Const Mandatory
 	GlobalVariable Property Settings_ShowHotkeyWarnings Auto Const Mandatory
 	{ 1.0.4 }
+	GlobalVariable Property Setting_AutoClearWeatherInWorkshopMode Auto Const Mandatory
 EndGroup
 
 
@@ -120,6 +122,22 @@ Bool Property FreezeTimeInWorkshopMode Hidden
 		endif
 	EndFunction
 EndProperty
+
+
+Bool Property ClearWeatherInWorkshopMode Hidden
+	Bool Function Get()
+		return (Setting_AutoClearWeatherInWorkshopMode.GetValueInt() == 1)
+	EndFunction
+	
+	Function Set(Bool value)
+		if(value)
+			Setting_AutoClearWeatherInWorkshopMode.SetValue(1.0)
+		else
+			Setting_AutoClearWeatherInWorkshopMode.SetValue(0.0)
+		endif
+	EndFunction
+EndProperty
+
 
 Bool Property BoostCarryWeightInWorkshopMode Hidden
 	Bool Function Get()
@@ -272,7 +290,7 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
 
 				if(bWasFlying)
 					; Give time for race swap to complete
-					Utility.Wait(3.5)
+					Utility.Wait(1.0)
 				endif
 				
 				controlLayer.Delete()
@@ -320,6 +338,16 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
 				if(InvulnerableInWorkshopMode)
 					RadResistSpell.Cast(PlayerRef)
 					PlayerRef.SetGhost(true)
+				endif
+				
+				if(ClearWeatherInWorkshopMode)
+					if(Game.IsPluginInstalled("DLCCoast.esm") && PlayerRef.GetWorldspace() == Game.GetFormFromFile(0x00000B0F, "DLCCoast.esm") as Worldspace)
+						Weather FarHarborClear = Game.GetFormFromFile(0x00009962, "DLCCoast.esm") as Weather
+						
+						FarHarborClear.ForceActive(true)
+					else
+						CommonwealthClear.ForceActive(true)
+					endif
 				endif
 			endif
 		endif
@@ -564,23 +592,54 @@ Function DecreaseSpeed()
 EndFunction
 
 
+Float Property fTemporaryFalldamageReduction = 0.0 Auto Hidden
+Bool bAdjustingFallDamageAV = false
 Function PreventFallDamage()
+	if(bAdjustingFallDamageAV)
+		return
+	endif
+	
+	bAdjustingFallDamageAV = true
+	
 	if( ! PlayerRef.HasMagicEffect(ArmorFallingEffect))
 		PlayerRef.AddPerk(ModFallingDamage)
 		Float fBaseValue = PlayerRef.GetBaseValue(FallingDamageMod)
 		
 		if(fBaseValue < 100) ; Need to make sure we push this AV's Max up to at least 100
-			PlayerRef.SetValue(FallingDamageMod, 100.0 - fBaseValue) 
+			PlayerRef.SetValue(FallingDamageMod, 100.0 - fBaseValue)
 		else
 			; We'll just mod up by 100 to make sure the actual value, and not just base value is high
 			PlayerRef.ModValue(FallingDamageMod, 100.0) 
 		endif
+	else
+		Float fBaseValue = PlayerRef.GetBaseValue(FallingDamageMod)
+		Float fValue = PlayerRef.GetValue(FallingDamageMod)
+		
+		if(fValue < 100)
+			if(fTemporaryFalldamageReduction > 0)
+				fTemporaryFalldamageReduction = 100.0 - fTemporaryFalldamageReduction - fValue
+			else
+				fTemporaryFalldamageReduction = 100.0 - fValue
+			endif
+			
+			if(fTemporaryFalldamageReduction > 0)
+				PlayerRef.ModValue(FallingDamageMod, fTemporaryFalldamageReduction)
+			endif
+		endif
 	endif
+	
+	bAdjustingFallDamageAV = false
 EndFunction
 
 
 
 Function AllowFallDamage()
+	if(bAdjustingFallDamageAV)
+		return
+	endif
+	
+	bAdjustingFallDamageAV = true
+	
 	if( ! PlayerRef.HasMagicEffect(ArmorFallingEffect))
 		Float fFDMod = PlayerRef.GetValue(FallingDamageMod)
 				
@@ -589,7 +648,13 @@ Function AllowFallDamage()
 		endif
 		
 		PlayerRef.ModValue(FallingDamageMod, (-1 * (fFDMod)))
+	elseif(fTemporaryFalldamageReduction > 0)
+		PlayerRef.ModValue(FallingDamageMod, (-1 * fTemporaryFalldamageReduction))
+		
+		fTemporaryFalldamageReduction = 0.0
 	endif
+	
+	bAdjustingFallDamageAV = false
 EndFunction
 
 
