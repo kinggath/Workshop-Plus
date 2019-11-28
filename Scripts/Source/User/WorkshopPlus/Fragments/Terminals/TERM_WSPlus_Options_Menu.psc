@@ -217,6 +217,24 @@ Setting_AutoClearWeather.SetValue(1.0)
 EndFunction
 ;END FRAGMENT
 
+;BEGIN FRAGMENT Fragment_Terminal_28
+Function Fragment_Terminal_28(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_FreeBuildAllSettlements.SetValueInt(0)
+WSPlusMain.ToggleFreeBuildMode(None, false)
+;END CODE
+EndFunction
+;END FRAGMENT
+
+;BEGIN FRAGMENT Fragment_Terminal_29
+Function Fragment_Terminal_29(ObjectReference akTerminalRef)
+;BEGIN CODE
+Setting_FreeBuildAllSettlements.SetValueInt(1)
+WSPlusMain.ToggleFreeBuildMode(None, true)
+;END CODE
+EndFunction
+;END FRAGMENT
+
 ;END FRAGMENT CODE - Do not edit anything between this and the begin comment
 
 GlobalVariable Property Setting_AutoSaveTimer Auto Const
@@ -236,3 +254,6 @@ GlobalVariable Property Setting_FreezeTime Auto Const
 GlobalVariable Property Setting_UnlimitedCarryWeight Auto Const
 
 GlobalVariable Property Setting_AutoClearWeather Auto Const Mandatory
+
+GlobalVariable Property Setting_FreeBuildAllSettlements Auto Const Mandatory
+WorkshopPlus:MainQuest Property WSPlusMain Auto Const Mandatory

@@ -58,6 +58,8 @@ Group Assets
 	{ 1.0.3 - Adding rad resistance to invulnerability }
 	Keyword Property JetpackKeyword Auto Const Mandatory
 	Weather Property CommonwealthClear Auto Const Mandatory
+	Keyword Property WorkshopFreeBuild Auto Const Mandatory
+	Keyword Property VRWorkshopKeyword Auto Const Mandatory
 EndGroup
 
 Group ActorValues
@@ -84,6 +86,7 @@ Group Settings
 	GlobalVariable Property Settings_ShowHotkeyWarnings Auto Const Mandatory
 	{ 1.0.4 }
 	GlobalVariable Property Setting_AutoClearWeatherInWorkshopMode Auto Const Mandatory
+	GlobalVariable Property Setting_FreeBuildInAllSettlements Auto Const Mandatory
 EndGroup
 
 
@@ -367,6 +370,8 @@ Function HandleGameLoaded()
 	if(RequiredWSFWVersion.GetValue() > WSFWVersion.GetValue())
 		WSFWVersionMismatch.Show()
 	endif
+	
+	IsGameSaving = false ; In case something caused this to get stuck on
 EndFunction
 
 
@@ -685,6 +690,39 @@ Function ExitWorkshopModeAndSave(Bool abAutoSave = true)
 EndFunction
 
 
+Function ToggleFreeBuildMode(WorkshopScript akWorkshopRef = None, Bool abEnableFreeBuild = true)
+	if(akWorkshopRef == None)
+		; Toggle on all settlements
+		if(Setting_FreeBuildInAllSettlements.GetValueInt() != 1)
+			abEnableFreeBuild = false
+		endif		
+		
+		WorkshopScript[] kWorkshops = WorkshopParent.Workshops
+		
+		int i = 0
+		while(i < kWorkshops.Length)
+			if(kWorkshops[i] != None && ! kWorkshops[i].HasKeyword(VRWorkshopKeyword))
+				if(abEnableFreeBuild)
+					kWorkshops[i].AddKeyword(WorkshopFreeBuild)
+				else
+					kWorkshops[i].RemoveKeyword(WorkshopFreeBuild)
+				endif
+			endif
+			
+			i += 1
+		endWhile
+	else
+		if(akWorkshopRef != None && ! akWorkshopRef.HasKeyword(VRWorkshopKeyword))
+			if(abEnableFreeBuild)
+				akWorkshopRef.AddKeyword(WorkshopFreeBuild)
+			else
+				akWorkshopRef.RemoveKeyword(WorkshopFreeBuild)
+			endif
+		endif		
+	endif
+EndFunction
+
+
 ; ---------------------------------------------
 ; MCM Functions - Easiest to avoid parameters for use with MCM's CallFunction, also we only want these hotkeys to work in WS mode
 ; ---------------------------------------------
@@ -717,6 +755,22 @@ Function Hotkey_ToggleFreezeTime()
 	
 	ToggleFreezeTime()
 EndFunction
+
+
+Function Hotkey_ToggleFreeBuildMode()
+	WorkshopScript kWorkshopRef = WorkshopFramework:WSFW_API.GetNearestWorkshop(PlayerRef)
+	
+	if(kWorkshopRef != None)
+		ToggleFreeBuildMode(kWorkshopRef, abEnableFreeBuild = ( ! kWorkshopRef.HasKeyword(WorkshopFreeBuild)))
+	endif
+EndFunction
+
+
+Function MCM_ChangeFreeBuildMode()
+	; Global will be set just before this is called
+	ToggleFreeBuildMode(None, abEnableFreeBuild = (Setting_FreeBuildInAllSettlements.GetValueInt() == 1))
+EndFunction
+
 
 
 Function Hotkey_ExitWorkshopModeAndSave()

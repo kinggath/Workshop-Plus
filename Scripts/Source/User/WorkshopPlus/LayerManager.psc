@@ -249,9 +249,27 @@ Event ObjectReference.OnWorkshopObjectMoved(ObjectReference akWorkshopRef, Objec
 				if(PreviousLayer == kLayerRef) ; 1.0.2 - Already on the correct layer
 					return
 				endif
-				
+			
 				RemoveItemFromLayer_Lock(akReference, PreviousLayer, kLayerRef)
+			else
+				; TODO - This is a temporary solution. It seems that items are being tagged as being part of a layer when they are built immediately before the player has setup any layers - but then the system is failing to find those layers with calls to GetLayerFromID. Likely the layer it's adding to is deleted, or perhaps the DefaultLayer does not return correctly from GetLayerFromID if an actual ID is found????
+				akReference.RemoveKeyword(AddedToLayerKeyword)
 			endif
+			;/
+			if( ! CanBeAddedToLayer(akReference))
+				if(akReference.HasKeyword(PreventAddingToLayersKeyword))
+					Debug.MessageBox("This object is specifically prevented from being added. Keyword PreventAddingToLayersKeyword found.")
+				elseif(akReference.HasKeyword(AddedToLayerKeyword))
+					Debug.MessageBox("This object is already on a layer. Keyword AddedToLayerKeyword found.")
+				elseif(akReference.HasKeyword(LayerHandleKeyword))
+					Debug.MessageBox("Item is a layer handle, can't be added to a layer.")
+				elseif(akReference.HasKeyword(WorkshopKeyword))
+					Debug.MessageBox("Item is a Workshop Workbench, can't be added to a layer.")
+				elseif(akReference as WorkshopNPCScript && ! (akReference as WorkshopObjectActorScript))
+					Debug.MessageBox("Item is an NPC, can't be added to a layer.")
+				endif
+			endif
+			/;
 			
 			AddItemToLayer_Lock(akReference, kLayerRef)
 		endif
@@ -1428,18 +1446,18 @@ Function HighlightLayerItems(WorkshopPlus:WorkshopLayer akLayerRef = None, Effec
 			endif
 		endif
 		
-		ObjectReference kNextRef = akLayerRef.kLastCreatedItem
-		while(kNextRef)
-			if( ! aShader)
-				if(akLayerRef.CurrentHighlightShader) ; 1.0.3 - Confirm we have a shader
-					akLayerRef.CurrentHighlightShader.Stop(kNextRef)
-				endif
-			else
+		if( ! aShader && akLayerRef.CurrentHighlightShader != None) ; 1.0.6 - Just grab the shader - if none found exit instead of iterating all items
+			aShader = akLayerRef.CurrentHighlightShader
+		endif
+		
+		if(aShader)
+			ObjectReference kNextRef = akLayerRef.kLastCreatedItem
+			while(kNextRef)
 				aShader.Stop(kNextRef)
-			endif
-			
-			kNextRef = kNextRef.GetLinkedRef(LayerItemLinkChainKeyword)
-		endWhile
+				
+				kNextRef = kNextRef.GetLinkedRef(LayerItemLinkChainKeyword)
+			endWhile
+		endif
 		
 		akLayerRef.CurrentHighlightShader = None
 	else
@@ -2415,14 +2433,14 @@ EndFunction
 Function Hotkey_NudgeWidgetUp()
 	Float fIncrement = Setting_LayerWidgetNudgeIncrement.GetValue()
 	HUDFrameworkManager.NudgeWidget(sLayerWidgetName, 0, fIncrement)
-	fLayersWidgetY += fIncrement
+	fLayersWidgetY -= fIncrement
 EndFunction
 
 
 Function Hotkey_NudgeWidgetDown()
 	Float fIncrement = Setting_LayerWidgetNudgeIncrement.GetValue()
 	HUDFrameworkManager.NudgeWidget(sLayerWidgetName, 2, fIncrement)
-	fLayersWidgetY -= fIncrement
+	fLayersWidgetY += fIncrement
 EndFunction
 
 
