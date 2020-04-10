@@ -347,6 +347,7 @@ Event WorkshopFramework:MainQuest.PlayerEnteredSettlement(WorkshopFramework:Main
 		CurrentSettlementLayers = SetupSettlementLayers_Lock(kWorkshopRef)		
 	endif
 	
+	BreakInfiniteLinkedLayers()
 	UpdateAllLayersOnHUD()
 	UpdateLayerWidget(abShow = true)
 EndEvent
@@ -385,7 +386,8 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
 				endif
 			endif
 		else ; Player entered workshop mode	
-			HUDFrameworkManager.ShowHUDWidgetsInWorkshopMode()
+			; ShowHUDWidgetsInWorkshopMode call no longer needed - now done in WorkshopFramework 
+			;	HUDFrameworkManager.ShowHUDWidgetsInWorkshopMode()
 			UpdateLayerWidget(abShow = true)
 		endif
 	endif	
@@ -1108,11 +1110,63 @@ Function SendChatterToLayer(WorkshopPlus:WorkshopLayer akLayerRef, Float afChatt
 	if( ! akLayerRef || akLayerRef.kLastCreatedItem == None)
 		return
 	endif
-	
-	ObjectReference kNextRef = akLayerRef.kLastCreatedItem
+
+	ObjectReference kLastCreatedItem = akLayerRef.kLastCreatedItem
+	ObjectReference kNextRef = kLastCreatedItem
 	while(kNextRef)
 		kNextRef.OnHolotapeChatter("WorkshopPlus.esp", afChatterCode)
 		
+		kNextRef = kNextRef.GetLinkedRef(LayerItemLinkChainKeyword)
+	endWhile
+EndFunction
+
+
+
+Function BreakInfiniteLinkedLayers(Bool abTriggeredManually = false)
+	WorkshopPlus:SettlementLayers LocalLayers = GetCurrentSettlementLayers()
+	
+	if(abTriggeredManually)
+		HUDFrameworkManager.CreateProgressBar(Self, "LayerRepair", "Repairing Layers")
+	endif
+	
+	int i = 0
+	while(i < LocalLayers.Layers.Length)
+		ObjectReference kLastCreatedItem = LocalLayers.Layers[i].kLastCreatedItem
+		BreakInfiniteLinks(kLastCreatedItem)
+		
+		if(abTriggeredManually)
+			HUDFrameworkManager.UpdateProgressBarPercentage(Self, "LayerRepair", Math.Floor((i as Float/LocalLayers.Layers.Length as Float) * 100))
+		endif
+		
+		i += 1
+	endWhile
+	
+	if(abTriggeredManually)
+		HUDFrameworkManager.CompleteProgressBar(Self, "LayerRepair")
+	endif
+EndFunction
+
+
+Function BreakInfiniteLinks(ObjectReference akObjectToCheck)
+	ObjectReference kNextRef = akObjectToCheck
+	Float fHoldLayerID = kNextRef.GetValue(LayerID)
+	
+	while(kNextRef)
+		ObjectReference kLinkedRef = kNextRef.GetLinkedRef(LayerItemLinkChainKeyword)
+		if(kLinkedRef == kNextRef || kLinkedRef.GetValue(LayerID) == -999.0) ; Same ref, or linked to an item that was already linked earlier in the chain
+			kNextRef.SetLinkedRef(None, LayerItemLinkChainKeyword)
+			kNextRef.SetValue(LayerID, fHoldLayerID) ; Restore layer ID
+			kNextRef = None
+		else
+			kNextRef.SetValue(LayerID, -999.0) ; Temporarily set layer ID so we know this item was already found linked in this layer
+			kNextRef = kLinkedRef
+		endif
+	endWhile
+	
+	; Restore layer ID to all items
+	kNextRef = akObjectToCheck
+	while(kNextRef)
+		kNextRef.SetValue(LayerID, fHoldLayerID)
 		kNextRef = kNextRef.GetLinkedRef(LayerItemLinkChainKeyword)
 	endWhile
 EndFunction
@@ -1138,6 +1192,8 @@ EndFunction
 
 Function AddItemToLayer_Lock(ObjectReference akNewItem, WorkshopPlus:WorkshopLayer akLayerRef = None, Bool abGetLock = true)
 	if( ! CanBeAddedToLayer(akNewItem))
+		ModTrace("[WS Plus] Unable to add item " + akNewItem + " to layer " + akLayerRef + ", failed CanBeAddedToLayer check.")
+		
 		return
 	endif
 	
@@ -1150,9 +1206,11 @@ Function AddItemToLayer_Lock(ObjectReference akNewItem, WorkshopPlus:WorkshopLay
 			akLayerRef = localLayerHolder.DefaultLayer
 			
 			if(akLayerRef == None || ! akLayerRef.bEnabled)
+				ModTrace("[WS Plus] Unable to add item " + akNewItem + " to layer " + akLayerRef + ", layer missing or disabled.")
 				return
 			endif
 		else
+			ModTrace("[WS Plus] Unable to add item " + akNewItem + " to layer " + akLayerRef + ", could not find settlement layer holder reference.")
 			return
 		endif
 	endif
@@ -2212,7 +2270,14 @@ WorkshopPlus:SettlementLayers Function GetLayerHolderFromLayer(WorkshopPlus:Work
 	endif
 EndFunction
 
-
+ObjectReference Function PreventLayerLinkChainLoop(ObjectReference akObjectA, ObjectReference akObjectLinkedToA)
+	if(akObjectA == akObjectLinkedToA)
+		
+		return None
+	endif
+	
+	return akObjectLinkedToA
+EndFunction
 
 ; ---------------------------------------------
 ; MCM Functions - Easiest to avoid parameters for use with MCM's CallFunction, also we only want these hotkeys to work in WS mode
@@ -2469,6 +2534,11 @@ Function Hotkey_ScaleWidgetDown()
 	Float fIncrement = Setting_LayerWidgetNudgeScaleIncrement.GetValue()
 	HUDFrameworkManager.NudgeWidgetScale(sLayerWidgetName, -1 * fIncrement)
 	fLayersWidgetScale -= fIncrement
+EndFunction
+
+
+Function MCM_BreakInfiniteLinkedLayers()
+	BreakInfiniteLinkedLayers(true)
 EndFunction
 
 

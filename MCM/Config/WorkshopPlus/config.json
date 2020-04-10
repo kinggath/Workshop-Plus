@@ -1,0 +1,562 @@
+{
+  "modName": "WorkshopPlus",         
+  "displayName": "Workshop Plus",    
+  "minMcmVersion": 1.10,                
+  "pluginRequirements": [],     
+  "content": [
+	{
+		"text": "<p align='center'><font size='24'>Workshop Plus</font></p>",
+		"html": true,
+		"type": "text"
+    },
+    {
+      "text": "About",
+      "type": "section"
+    },
+    {
+		"text": "<p>Workshop Plus provides enhancements to Workshop Mode - with the aim of supplying all of the utilities you'd expect from a creative tool.</p><br>",
+		"type": "text",
+		"html": true
+    }
+  ],                   
+  "pages": [
+  {                         
+    "pageDisplayName": "Options",   
+    "content": [
+		{
+		  "text": "Workshop Mode Options",
+		  "type": "section"
+		},
+		{ 
+		  "id": "WorkshopAutoSave:Options",
+		  "text": "Autosave Timer",
+		  "type": "slider",
+		  "help": "[0 = Disabled] After this many minutes in workshop mode the game will be auto-saved.",
+		  "valueOptions": {
+			"min": 0,
+			"max": 60,
+			"step": 1,
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|3D5F"
+		  }	  
+		},
+		{ 
+		  "id": "WorkshopFlight:Options",
+		  "text": "Fly in Workshop Mode",
+		  "type": "switcher",
+		  "help": "While in workshop mode you will be able to fly. Note: Does not work if a Jetpack is equipped.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|35C3"
+		  }	  
+		},
+		{ 
+		  "id": "WorkshopIncreaseSpeed:Options",
+		  "text": "Increase Speed in Workshop Mode",
+		  "type": "stepper",
+		  "help": "While in workshop mode, your speed will be increased by this much.",
+		  "valueOptions": {
+			"options": ["0%", "50%", "100%"],
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|35C0"
+		  }	 
+		},
+		{ 
+		  "id": "WorkshopInvulnerability:Options",
+		  "text": "Invulnerability in Workshop Mode",
+		  "type": "switcher",
+		  "help": "While in workshop mode you won't take damage or rads.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|72A3"
+		  }	  
+		},
+		{ 
+		  "id": "WorkshopInvisibility:Options",
+		  "text": "Invisibility in Workshop Mode",
+		  "type": "switcher",
+		  "help": "While in workshop mode enemies won't see you.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|72A7"
+		  }	  
+		},
+		{ 
+		  "id": "Auto-Clear Weather:Options",
+		  "text": "Clear the weather in Workshop Mode",
+		  "type": "switcher",
+		  "help": "When entering workshop mode, the weather will be set to Clear.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|13160"
+		  }	  
+		},
+		{ 
+		  "id": "PreventFallDamage:Options",
+		  "text": "Prevent Fall Damage in Workshop Mode",
+		  "type": "switcher",
+		  "help": "While in workshop mode and for a few seconds after, you will be immune to fall damage. Note that this must be enabled before you enter workshop mode to go into effect.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|35C2"
+		  }	  
+		},
+		{ 
+		  "id": "WorkshopUnlimitedCarryWeight:Options",
+		  "text": "Unlimited Carry Weight in Workshop Mode",
+		  "type": "switcher",
+		  "help": "While in workshop mode your carry weight is virtually unlimited, this will allow you to move at full speed regardless of what's in your inventory.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|912B"
+		  }	  
+		},
+		{ 
+		  "id": "WorkshopFreeBuildMode:Options",
+		  "text": "Free Build Mode",
+		  "type": "switcher",
+		  "help": "Unlimited resources and bypass most Perk requirements. No scrap returned in this mode.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|1482C"
+		  },
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED5",
+				"function": "MCM_ChangeFreeBuildMode"
+			}
+		},
+		{ 
+		  "id": "WorkshopFreezeTime:Options",
+		  "text": "Freeze Time in Workshop Mode",
+		  "type": "switcher",
+		  "help": "While in workshop mode time will be frozen. NPCs will stand still and the clock will not advance.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|912A"
+		  }	  
+		},
+		{
+		  "text": "Layer Options",
+		  "type": "section"
+		},
+		{ 
+		  "id": "AutoChangeLayersOnMove:Options",
+		  "text": "Auto Change Layers",
+		  "type": "switcher",
+		  "help": "While enabled, moving an object in workshop mode will move it to the currently active layer.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|2E14"
+		  }	  
+		},
+		{ 
+		  "id": "AutoUnhideLayers:Options",
+		  "text": "Auto Unhide Layers",
+		  "type": "switcher",
+		  "help": "All layer items will be unhidden when you leave workshop mode.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|2E15"
+		  }	  
+		},
+		{ 
+		  "id": "AutoUnhideLayersDelay:Options",
+		  "text": "Auto Unhide Layers Delay",
+		  "type": "slider",
+		  "help": "Delay Auto Unhide layers by this many seconds so you can pop out of workshop mode temporarily without having your layers unhide.",
+		  "valueOptions": {
+			"min": 0,
+			"max": 120,
+			"step": 10,
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|2E16"
+		  }	  
+		},
+		{ 
+		  "id": "ClearHighlightingOnExit:Options",
+		  "text": "Clear Highlighting Outside Workshop Mode",
+		  "type": "switcher",
+		  "help": "All highlighting will be cleared from items when you exit Workshop Mode.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|A7F7"
+		  }	  
+		},
+		{ 
+		  "id": "FlashItemsAddedToLayers:Options",
+		  "text": "Flash Items Added To Layers",
+		  "type": "switcher",
+		  "help": "Items are flashed purple as they are added to layers to confirm they were added.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|11A7F"
+		  }	  
+		},
+		{ 
+		  "id": "PlayLayerSounds:Options",
+		  "text": "Play Layer Sounds",
+		  "type": "switcher",
+		  "help": "UI sounds will play as you do things involving layers to let you know the command succeeded.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|44FE"
+		  }	  
+		},
+		{
+		  "text": "Tools",
+		  "type": "section"
+		},
+		{
+			"text": "Add Previous Items to Layer",
+			"type": "button",
+			"help": "(Note: Happens after you un-pause) Clicking this will add any workshop built items not on a layer to the layer you select.",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED7",
+				"function": "MCM_AddPreviousItemsToLayer"
+			}
+		},
+		{
+			"text": "Remove All Layers",
+			"type": "button",
+			"help": "(Note: Happens after you un-pause) Clicking this will remove all layers, but not the items in the current settlement. Will also unhide all items and clear any highlighting.",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED7",
+				"function": "MCM_RemoveAllLayers"
+			}
+		},
+		{
+			"text": "Repair Layers",
+			"type": "button",
+			"help": "Occasionally the layer system will appear to quit working, this will run a repair on them.",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED7",
+				"function": "MCM_BreakInfiniteLinkedLayers"
+			}
+		}
+	]
+  },
+  {
+	"pageDisplayName": "Hotkeys",   
+    "content": [
+		{
+		  "text": "Action Hotkeys",
+		  "type": "section"
+		},
+		{
+		  "id": "WP_Undo",
+		  "text": "Undo",
+		  "type": "hotkey",
+		  "help": "Undo the last workshop action."
+		},
+		{
+		  "id": "WP_Redo",
+		  "text": "Redo",
+		  "type": "hotkey",
+		  "help": "Redo the last undone workshop action."
+		},
+		{
+		  "id": "WP_Clone",
+		  "text": "Clone",
+		  "type": "hotkey",
+		  "help": "Clone the currently held workshop object. If holding a Layer Handle - it will clone all objects connected to it."
+		},
+		{
+		  "id": "WP_WorkshopSave",
+		  "text": "Save",
+		  "type": "hotkey",
+		  "help": "Save the game. If in workshop mode, you will be quickly exited and entered again to allow the save. [Warning] May not create thumbnail."
+		},		
+		{
+		  "text": "Toggle Hotkeys",
+		  "type": "section"
+		},
+		{
+		  "id": "WP_ToggleFlight",
+		  "text": "Toggle Flight",
+		  "type": "hotkey",
+		  "help": "Toggle flight if Fly in Workshop Mode."
+		},
+		{
+		  "id": "WP_ToggleSpeedBuff",
+		  "text": "Toggle Speed Buff",
+		  "type": "hotkey",
+		  "help": "Toggle the speed buff in Workshop Mode."
+		},
+		{
+		  "id": "WP_ToggleFreeBuildMode",
+		  "text": "Toggle Free Build Mode",
+		  "type": "hotkey",
+		  "help": "Toggle Unlimited Resources and Perk requirement bypass in Workshop Mode."
+		},
+		{
+		  "id": "WP_ToggleFreezeTime",
+		  "text": "Toggle Freeze Time",
+		  "type": "hotkey",
+		  "help": "Toggle time freeze in Workshop Mode."
+		},
+		{
+		  "text": "Layer Hotkeys",
+		  "type": "section"
+		},
+		{
+		  "id": "WP_CreateLayer",
+		  "text": "Create New Layer",
+		  "type": "hotkey",
+		  "help": "Create a new layer (it will be made active)."
+		},
+		{
+		  "id": "WP_SwitchActiveLayer",
+		  "text": "Switch Layers",
+		  "type": "hotkey",
+		  "help": "Switch to the next layer."
+		},
+		{
+		  "id": "WP_PlaceLayerHandle",
+		  "text": "Place Layer Handle",
+		  "type": "hotkey",
+		  "help": "Places the Layer Handle for the current layer in front of you. You can use this object to manipulate or clone the items on the current layer."
+		},
+		{
+		  "id": "WP_PlaceBlueprintController",
+		  "text": "Place Blueprint Controller",
+		  "type": "hotkey",
+		  "help": "Places the Blueprint Controller in front of you. You can use this object to create and build blueprints of your layers."
+		},		
+		{
+		  "id": "WP_ClearActiveLayer",
+		  "text": "Clear Active Layer",
+		  "type": "hotkey",
+		  "help": "Prompt appears to allow you to decide how to remove all items from the active layer (scrap or move to different layer)."
+		},
+		{
+		  "id": "WP_ToggleActiveLayer",
+		  "text": "Toggle Active Layer",
+		  "type": "hotkey",
+		  "help": "Show/Hide the currently active layer's items."
+		}, 
+		{
+		  "id": "WP_DuplicateActiveLayer",
+		  "text": "Duplicate Layer",
+		  "type": "hotkey",
+		  "help": "Copy all items on the active layer to a new layer."
+		},		
+		{
+		  "id": "WP_ToggleActiveLayerHighlighting",
+		  "text": "Toggle Automatic Layer Highlighting",
+		  "type": "hotkey",
+		  "help": "When this is toggled on, the items on the current active layer will always be highlighted. If you switch layers, the new layer's items will be highlighted instead."
+		},
+		{
+		  "id": "WP_ShowAllLayers",
+		  "text": "Show All Layers",
+		  "type": "hotkey",
+		  "help": "Show every item on all layers."
+		}		
+	]
+  },
+  {
+	"pageDisplayName": "Layer HUD",   
+    "content": [
+		{
+		"text": "<strong>HUDFramework Users Only</strong><br />The Layer HUD will appear after you add a new layer to a settlement. This will help you keep track of which layers you have hidden, and which you are currently building on.<br />",
+		"type": "text",
+		"html": true
+		},
+		{ 
+		  "id": "UseLayerHUD:Options",
+		  "text": "Use Layer HUD",
+		  "type": "switcher",
+		  "help": "A visual component will display the current layer configuration on your screen while you are in a settlement.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|44FA"
+		  }	  
+		},
+		{ 
+		  "id": "LayerHUDWSModeOnly:Options",
+		  "text": "Only Show in Workshop Mode",
+		  "type": "switcher",
+		  "help": "The Layer HUD will be automatically hidden when you exit Workshop Mode.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|9125"
+		  }	  
+		},
+		{
+			"text": "Reset Layer HUD Position and Scale",
+			"type": "button",
+			"help": "(Note: Happens after you un-pause) Clicking this will restore the default position and scale of the Layer HUD.",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|2E16",
+				"function": "MCM_ResetLayerWidgetPositionAndScale"
+			}
+		},
+		{
+		  "text": "Position Hotkeys",
+		  "type": "section"
+		},
+		{
+		"text": "Set these hotkeys temporarily and position the HUD where you want it, then you can rebind these keys to something else if you like. (Be sure you add at least one new layer for the HUD to show up.)",
+		"type": "text",
+		"html": false
+		},
+		{
+		  "id": "WP_NudgeLayerHUDUp",
+		  "text": "Move Up",
+		  "type": "hotkey",
+		  "help": "Nudge the Layer HUD up slightly."
+		},
+		{
+		  "id": "WP_NudgeLayerHUDDown",
+		  "text": "Move Down",
+		  "type": "hotkey",
+		  "help": "Nudge the Layer HUD down slightly."
+		},
+		{
+		  "id": "WP_NudgeLayerHUDLeft",
+		  "text": "Move Left",
+		  "type": "hotkey",
+		  "help": "Nudge the Layer HUD slightly to the left."
+		},
+		{
+		  "id": "WP_NudgeLayerHUDRight",
+		  "text": "Move Right",
+		  "type": "hotkey",
+		  "help": "Nudge the Layer HUD slightly to the right."
+		},
+		{
+		  "id": "WP_ScaleLayerHUDUp",
+		  "text": "Increase Size",
+		  "type": "hotkey",
+		  "help": "Increase the Layer HUD size slightly."
+		},
+		{
+		  "id": "WP_ScaleLayerHUDDown",
+		  "text": "Decrease Size",
+		  "type": "hotkey",
+		  "help": "Reduce the Layer HUD size slightly."
+		}
+	]
+  },
+  {
+	"pageDisplayName": "Advanced",   
+    "content": [
+		{ 
+		  "id": "AutoSaveWorkshopModeDelay:Options",
+		  "text": "AutoSave Workshop Mode Delay",
+		  "type": "slider",
+		  "help": "Delay (in seconds) before returning to workshop mode after a workshop mode quick/auto save. This is useful if you find your controls working strangely after a save.",
+		  "valueOptions": {
+			"min": 1,
+			"max": 10,
+			"step": 1,
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|3D60"
+		  }	  
+		},
+		{ 
+		  "id": "AutoUnlinkHiddenLayers:Options",
+		  "text": "Auto Unlink Hidden Layers",
+		  "type": "switcher",
+		  "help": "Automatically unlink hidden layers. Turning this off can speed up layer hiding/unhiding. [Warning] Hidden items that are still linked, will be picked up by group select.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|4CA3"
+		  }	  
+		},
+		{ 
+		  "id": "CloneLayerHandleMethod:Options",
+		  "text": "Clone Layer Handle Method",
+		  "type": "stepper",
+		  "help": "Default is to Clone to the current active layer, but you can choose to have them handled in other ways.",
+		  "valueOptions": {
+			"options": ["Clone To Active Layer", "Clone To Source Layer", "Clone To New Layer", "Ask Me"],
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|C664"
+		  }	 	  
+		},
+		{ 
+		  "id": "FlashItemsAddedToDefaultLayer:Options",
+		  "text": "Flash Items Added To Default Layer",
+		  "type": "switcher",
+		  "help": "Items are flashed purple as they are added to layers to confirm they were added, this is disabled by default on the default layer unless you enable this.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|11A7B"
+		  }	  
+		},
+		{ 
+		  "id": "HighlightItemsWhenLayerHandleHeld:Options",
+		  "text": "Highlight Items When Layer Handle Held",
+		  "type": "switcher",
+		  "help": "Highlight all of the items that will be moved by the layer handle when you pick up the layer handle.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|D5BD"
+		  }	  
+		},
+		{ 
+		  "id": "ShowHotkeyWarnings:Options",
+		  "text": "Show Hotkey Warnings",
+		  "type": "switcher",
+		  "help": "When pressing a hotkey outside of Workshop Mode, WS+ will remind you that you need to go into Workshop Mode.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|129C1"
+		  }	  
+		},
+		{
+		  "text": "Advanced Hotkeys",
+		  "type": "section"
+		},
+		{
+		  "id": "WP_ToggleAutoChangeLayersOnMove",
+		  "text": "Toggle Auto Change Layers On Move",
+		  "type": "hotkey",
+		  "help": "Toggle the Auto Change Layers On Move setting. While this setting is enabled, any objects you pick up will be moved to the currently Active layer."
+		},
+		{
+		  "id": "WP_ToggleLayerLink",
+		  "text": "Toggle Layer Link",
+		  "type": "hotkey",
+		  "help": "[Warning] Slow Command. All items on the active layer will be disconnected or reconnected from the settlement. This can make group movement of specific objects on other layers much easier."
+		},
+		{
+		  "id": "WP_ToggleLayerHighlight",
+		  "text": "Toggle Layer Highlight",
+		  "type": "hotkey",
+		  "help": "Toggle the highlight of all items on the current active layer blue, or clear all highlights on the current layer."
+		},
+		{
+		  "id": "WP_ClearAllHighlighting",
+		  "text": "Clear All Layer Highlights",
+		  "type": "hotkey",
+		  "help": "Clear the highlighting from all items on all layers."
+		},
+		{
+		  "id": "WP_DeleteActiveLayer",
+		  "text": "Delete Active Layer",
+		  "type": "hotkey",
+		  "help": "Delete the active layer (you will be prompted with how to handle items on the layer)."
+		},
+		{
+		  "id": "WP_HideAllLayers",
+		  "text": "Hide All Layers",
+		  "type": "hotkey",
+		  "help": "Hide every item on all layers."
+		},
+		{
+		  "id": "WP_HideInactiveLayers",
+		  "text": "Hide Inactive Layers",
+		  "type": "hotkey",
+		  "help": "Hide all items on layers that aren't on the current active layer."
+		}
+	]
+  }	
+  ]
+}

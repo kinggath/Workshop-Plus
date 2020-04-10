@@ -33,6 +33,15 @@ endif
 EndFunction
 ;END FRAGMENT
 
+;BEGIN FRAGMENT Fragment_Terminal_04
+Function Fragment_Terminal_04(ObjectReference akTerminalRef)
+;BEGIN CODE
+Utility.Wait(0.1)
+LayerManager.BreakInfiniteLinkedLayers(abTriggeredManually = true)
+;END CODE
+EndFunction
+;END FRAGMENT
+
 ;END FRAGMENT CODE - Do not edit anything between this and the begin comment
 
 WorkshopPlus:LayerManager Property LayerManager Auto Const Mandatory

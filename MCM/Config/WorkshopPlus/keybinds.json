@@ -1,0 +1,275 @@
+{
+  "modName": "WorkshopPlus",         
+  "keybinds": [
+	{
+	  "id": "WP_Undo",
+	  "desc": "Workshop Plus: Undo.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|F99", //ActionManager
+		"function": "Hotkey_Undo"
+	  }
+	}, 
+	{
+	  "id": "WP_Redo",
+	  "desc": "Workshop Plus: Redo.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|F99", //ActionManager
+		"function": "Hotkey_Redo"
+	  }
+	}, 
+	{
+	  "id": "WP_Clone",
+	  "desc": "Workshop Plus: Clone.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|F99", //ActionManager
+		"function": "Hotkey_CloneGrabbed"
+	  }
+	}, 
+	{
+	  "id": "WP_ToggleAutoChangeLayersOnMove",
+	  "desc": "Workshop Plus: Toggle Auto Change Layers.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ToggleAutoChangeLayersOnMove"
+	  }
+	}, 
+	{
+	  "id": "WP_PlaceLayerHandle",
+	  "desc": "Workshop Plus: Place Layer Handle.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_PlaceLayerHandle"
+	  }
+	}, 
+	{
+	  "id": "WP_PlaceBlueprintController",
+	  "desc": "Workshop Plus: Place Blueprint Controller.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|FBCD", //BlueprintManager
+		"function": "Hotkey_PlaceBlueprintController"
+	  }
+	}, 	
+	{
+	  "id": "WP_WorkshopSave",
+	  "desc": "Workshop Plus: Workshop Save.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED5", //MainQuest
+		"function": "Hotkey_ExitWorkshopModeAndSave"
+	  }
+	},
+	{
+	  "id": "WP_CreateLayer",
+	  "desc": "Workshop Plus: Create New Layer.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_CreateNewLayer"
+	  }
+	},
+	{
+	  "id": "WP_SwitchActiveLayer",
+	  "desc": "Workshop Plus: Switch Active Layer.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_SwitchToNextLayer"
+	  }
+	},
+	{
+	  "id": "WP_ClearActiveLayer",
+	  "desc": "Workshop Plus: Clear Active Layer.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ClearActiveLayer"
+	  }
+	},
+	{
+	  "id": "WP_DeleteActiveLayer",
+	  "desc": "Workshop Plus: Delete Active Layer.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_DisableActiveLayer"
+	  }
+	},
+	{
+	  "id": "WP_ToggleLayerLink",
+	  "desc": "Workshop Plus: Toggle Layer Link.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ToggleLayerLink"
+	  }
+	},
+	{
+	  "id": "WP_DuplicateActiveLayer",
+	  "desc": "Workshop Plus: Duplicate Active Layer.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_DuplicateActiveLayer"
+	  }
+	},
+	{
+	  "id": "WP_ToggleActiveLayer",
+	  "desc": "Workshop Plus: Toggle Active Layer.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ToggleActiveLayer"
+	  }
+	},
+	{
+	  "id": "WP_HideAllLayers",
+	  "desc": "Workshop Plus: Hide All Layers.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_HideAllLayers"
+	  }
+	}, 
+	{
+	  "id": "WP_HideInactiveLayers",
+	  "desc": "Workshop Plus: Hide Inactive Layers.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_HideInactiveLayers"
+	  }
+	}, 
+	{
+	  "id": "WP_ShowAllLayers",
+	  "desc": "Workshop Plus: Show All Layers.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ShowAllLayers"
+	  }
+	}, 	
+	{
+	  "id": "WP_ToggleActiveLayerHighlighting",
+	  "desc": "Workshop Plus: Toggle Automatic Active Layer Highlighting.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ToggleActiveLayerHighlighting"
+	  }
+	}, 	
+	{
+	  "id": "WP_ToggleLayerHighlight",
+	  "desc": "Workshop Plus: Toggle Layer Highlight.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ToggleLayerHighlight"
+	  }
+	},
+	{
+	  "id": "WP_ClearAllHighlighting",
+	  "desc": "Workshop Plus: Clear All Layer Highlights.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ClearAllHighlighting"
+	  }
+	},
+	{
+	  "id": "WP_NudgeLayerHUDUp",
+	  "desc": "Workshop Plus: Nudge Layer HUD Up.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_NudgeWidgetUp"
+	  }
+	},
+	{
+	  "id": "WP_NudgeLayerHUDDown",
+	  "desc": "Workshop Plus: Nudge Layer HUD Down.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_NudgeWidgetDown"
+	  }
+	},
+	{
+	  "id": "WP_NudgeLayerHUDLeft",
+	  "desc": "Workshop Plus: Nudge Layer HUD Left.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_NudgeWidgetLeft"
+	  }
+	},
+	{
+	  "id": "WP_NudgeLayerHUDRight",
+	  "desc": "Workshop Plus: Nudge Layer HUD Right.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_NudgeWidgetRight"
+	  }
+	},
+	{
+	  "id": "WP_ScaleLayerHUDUp",
+	  "desc": "Workshop Plus: Increase Layer HUD Size.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ScaleWidgetUp"
+	  }
+	},
+	{
+	  "id": "WP_ScaleLayerHUDDown",
+	  "desc": "Workshop Plus: Decrease Layer HUD Size.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED7", //LayerManager
+		"function": "Hotkey_ScaleWidgetDown"
+	  }
+	},
+	{
+	  "id": "WP_ToggleFlight",
+	  "desc": "Workshop Plus: Toggle flight in workshop mode.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED5", //MainQuest
+		"function": "Hotkey_ToggleFlight"
+	  }
+	}, 
+	{
+	  "id": "WP_ToggleFreezeTime",
+	  "desc": "Workshop Plus: Toggle freeze time in workshop mode.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED5", //MainQuest
+		"function": "Hotkey_ToggleFreezeTime"
+	  }
+	}, 
+	{
+	  "id": "WP_ToggleSpeedBuff",
+	  "desc": "Workshop Plus: Toggle workshop mode speed buff.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED5", //MainQuest
+		"function": "ToggleSpeed"
+	  }
+	}, 
+	{
+	  "id": "WP_ToggleFreeBuildMode",
+	  "desc": "Workshop Plus: Toggle Free Build mode in nearest settlement.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED5", //MainQuest
+		"function": "Hotkey_ToggleFreeBuildMode"
+	  }
+	}
+   ]
+}
