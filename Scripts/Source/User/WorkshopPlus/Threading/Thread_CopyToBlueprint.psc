@@ -117,7 +117,10 @@ EndFunction
 
 
 Function ReleaseObjectReferences()
-	if(kBlueprintRef.iTotalItemCount >= kBlueprintRef.iExpectedItems && Game.GetPlayer().GetItemCount(kBlueprintRef) == 0 && ! BlueprintManager.bBlueprintRenamePromptBlock)
+	int iTotalReceived = kBlueprintRef.iTotalItemCount
+	int iTotalExpected = kBlueprintRef.iExpectedItems
+	
+	if(iTotalReceived >= iTotalExpected && Game.GetPlayer().GetItemCount(kBlueprintRef) == 0 && ! BlueprintManager.bBlueprintRenamePromptBlock)
 		BlueprintManager.bBlueprintRenamePromptBlock = true
 		
 		kBlueprintRef.Compress()
@@ -144,6 +147,8 @@ Function ReleaseObjectReferences()
 		endif
 		
 		tempLayer.Delete()
+		
+		BlueprintManager.HUDFrameworkManager.CompleteProgressBar(BlueprintManager, BlueprintManager.sProgressBar_CreateBlueprint)
 		
 		BlueprintManager.bBlueprintCreationBlock = false
 		BlueprintManager.bBlueprintRenamePromptBlock = false

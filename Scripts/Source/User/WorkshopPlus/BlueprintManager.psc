@@ -24,6 +24,8 @@ import WorkshopFramework:WorkshopFunctions
 ; Consts 
 ; ---------------------------------------------
 
+String Property sProgressBar_CreateBlueprint = "CreateWSPlusBlueprint" Auto Const
+String Property sProgressBar_BuildBlueprint = "BuildWSPlusBlueprint" Auto Const
 
 ; ---------------------------------------------
 ; Editor Properties 
@@ -136,6 +138,8 @@ Bool Property bBlueprintStorageTutorialComplete = false Auto Hidden
 
 int iLastShownBlueprintIndex = 0
 int[] ExpectingBatchIDs
+int iTotalExpectingCount = 0
+int iTotalSentCount = 0
 
 ; ---------------------------------------------
 ; Events
@@ -227,7 +231,7 @@ Event WorkshopFramework:PlaceObjectManager.SimpleObjectBatchCreated(WorkshopFram
 			endWhile
 		endif
 		
-		if( ! bAdditionalEvents)
+		if( ! bAdditionalEvents)	
 			if(ExpectingBatchIDs.Length > 1)
 				ExpectingBatchIDs.Remove(iBatchIndex)
 			elseif(ExpectingBatchIDs.Length == 1)
@@ -237,6 +241,7 @@ Event WorkshopFramework:PlaceObjectManager.SimpleObjectBatchCreated(WorkshopFram
 				; Update the BP Controller object's shader
 				ActiveBlueprintControllerRef.PlayReadyShader()
 				
+				HUDFrameworkManager.CompleteProgressBar(Self, sProgressBar_BuildBlueprint)
 				BlueprintConstructionComplete.Show()
 				
 				; Clear the previously used layer, this locks out new items on the layer from being attached to the layer handle
@@ -475,16 +480,21 @@ Function CreateBlueprintFromLayer(Int aiLayerIndex)
 	BlueprintObjects.AddRef(kBlueprintRef)
 	LastCreatedBlueprint.ForceRefTo(kBlueprintRef)
 	
+	HUDFrameworkManager.CreateProgressBar(Self, sProgressBar_CreateBlueprint, "Scanning Items")
+	
 	; Copy items to blueprint via threads
 	ObjectReference[] kObjectBatch = new ObjectReference[0]
 	WorkshopPlus:Threading:Thread_CopyToBlueprint kThreadRef
 	int iExpectedCount = sourceLayer.iItemCount
+	int iTotalCount = 0
 	int iMaxBatches = kBlueprintRef.iMaxBatches
 	Int iMaxWaitCount = 10
 	Int iWaitCount = 0
 	while(kNextRef)
 		kObjectBatch.Add(kNextRef)
+		iTotalCount += 1
 		
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_CreateBlueprint, Math.Floor((iTotalCount as Float/iExpectedCount as Float) * 100))
 		if(kObjectBatch.Length > 0 && (kObjectBatch.Length == 128 || (iExpectedCount > iMaxBatches && kObjectBatch.Length >= Math.Ceiling(iExpectedCount as Float/iMaxBatches as Float))))
 			kThreadRef = ThreadManager.CreateThread(Thread_CopyToBlueprint) as WorkshopPlus:Threading:Thread_CopyToBlueprint
 			
@@ -503,6 +513,9 @@ Function CreateBlueprintFromLayer(Int aiLayerIndex)
 	
 		kNextRef = kNextRef.GetLinkedRef(LayerItemLinkChainKeyword)
 	endWhile
+	
+	HUDFrameworkManager.UpdateProgressBarData(Self, sProgressBar_CreateBlueprint, "Creating Blueprint")
+	HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_CreateBlueprint, 0)
 	
 	if(kObjectBatch.Length > 0)
 		kThreadRef = ThreadManager.CreateThread(Thread_CopyToBlueprint) as WorkshopPlus:Threading:Thread_CopyToBlueprint
@@ -619,100 +632,156 @@ Function BuildBlueprint(WorkshopPlus:ObjectReferences:Blueprint akBlueprintRef, 
 	
 	WorkshopScript thisWorkshop = ResourceManager.Workshops[gCurrentWorkshop.GetValueInt()]
 	
+	HUDFrameworkManager.CreateProgressBar(Self, sProgressBar_BuildBlueprint, "Building Blueprint")
+	iTotalExpectingCount = akBlueprintRef.iTotalItemCount
+	if(iTotalExpectingCount <= 0)
+		iTotalExpectingCount = akBlueprintRef.ObjectBatch01.Length + akBlueprintRef.ObjectBatch02.Length + akBlueprintRef.ObjectBatch03.Length + akBlueprintRef.ObjectBatch04.Length + akBlueprintRef.ObjectBatch05.Length + akBlueprintRef.ObjectBatch06.Length + akBlueprintRef.ObjectBatch07.Length + akBlueprintRef.ObjectBatch08.Length + akBlueprintRef.ObjectBatch09.Length + akBlueprintRef.ObjectBatch10.Length + akBlueprintRef.ObjectBatch11.Length + akBlueprintRef.ObjectBatch12.Length + akBlueprintRef.ObjectBatch13.Length + akBlueprintRef.ObjectBatch14.Length + akBlueprintRef.ObjectBatch15.Length + akBlueprintRef.ObjectBatch16.Length
+	endif
+	iTotalSentCount = 0
+	
 	if(akBlueprintRef.ObjectBatch01.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch01, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch01.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch02.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch02, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch02.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))		
 	endif
 	
 	if(akBlueprintRef.ObjectBatch03.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch03, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch03.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif	
 	
 	if(akBlueprintRef.ObjectBatch04.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch04, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch04.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif	
 	
 	if(akBlueprintRef.ObjectBatch05.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch05, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch05.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch06.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch06, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch06.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch07.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch07, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch07.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch08.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch08, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch08.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch09.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch09, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch09.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch10.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch10, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch10.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch11.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch11, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch11.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch12.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch12, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch12.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch13.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch13, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch13.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch14.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch14, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch14.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch15.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch15, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch15.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	
 	if(akBlueprintRef.ObjectBatch16.Length > 0)
 		int iBatchID = PlaceObjectManager.CreateBatchObjectsV2(akBlueprintRef.ObjectBatch16, thisWorkshop, akBlueprintController)
 		
 		ExpectingBatchIDs.Add(iBatchID)
+		
+		
+		iTotalSentCount += akBlueprintRef.ObjectBatch16.Length
+		HUDFrameworkManager.UpdateProgressBarPercentage(Self, sProgressBar_BuildBlueprint, Math.Floor((iTotalSentCount as Float/iTotalExpectingCount as Float) * 100))
 	endif
 	; Note - we're leaving bBlueprintBuildBlock, it will get flipped back when the batch events return
 EndFunction
