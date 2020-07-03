@@ -26,6 +26,12 @@ Float fDefaultTimeScale = 20.0 Const
 
 Int DelayedFallDamageTimerID = 100 Const
 Int WorkshopModeAutoSaveTimerID = 101 Const
+Int iObjective_OwnershipTracking = 10 Const
+
+Struct ResourceObjectiveMap
+	ActorValue ResourceAV
+	Int iObjective
+EndStruct
 
 ; ---------------------------------------------
 ; Editor Properties 
@@ -37,6 +43,12 @@ Group Controllers
 	{ 1.0.2 - Point to WSFW version global }
 	GlobalVariable Property RequiredWSFWVersion Auto Const Mandatory
 	{ 1.0.2 - Warn player if they have a version mismatch with WSFW }
+	ResourceObjectiveMap[] Property ResourceTrackingMaps Auto Const Mandatory
+EndGroup
+
+Group Aliases
+	RefCollectionAlias Property OwnershipTracking Auto Const Mandatory
+	RefCollectionAlias Property ResourceTracking Auto Const Mandatory
 EndGroup
 
 Group Assets
@@ -49,6 +61,9 @@ Group Assets
 	Perk Property UndetectablePerk Auto Const Mandatory
 	Perk Property ModFallingDamage Auto Const Mandatory
 	{ Autofill }
+	Perk Property ImmuneToRadiation Auto Const Mandatory
+	{ Autofill }
+	Perk Property ActivationsPerk Auto Const Mandatory
 	Form Property XMarkerForm Auto Const Mandatory
 	MagicEffect Property ArmorFallingEffect Auto Const Mandatory
 	GlobalVariable Property TimeScale Auto Const Mandatory
@@ -64,6 +79,13 @@ EndGroup
 
 Group ActorValues
 	ActorValue Property FallingDamageMod Auto Const Mandatory
+	{ Autofill }	
+EndGroup
+
+Group Keywords
+	Keyword Property WorkshopItemKeyword Auto Const Mandatory
+	{ Autofill }
+	Keyword Property WorkshopWorkObject Auto Const Mandatory
 	{ Autofill }
 EndGroup
 
@@ -71,6 +93,9 @@ Group Messages
 	Message Property MustBeInWorkshopModeToUseHotkeys Auto Const Mandatory
 	Message Property CouldNotAutoSave Auto Const Mandatory
 	Message Property WSFWVersionMismatch Auto Const Mandatory
+	Message Property NoOwnerFound Auto Const Mandatory
+	Message Property NoItemsFound Auto Const Mandatory
+	Message Property NotInSettlement Auto Const Mandatory
 EndGroup
 
 Group Settings
@@ -288,7 +313,7 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
 				DisableCarryWeightBoost()
 				UnfreezeTime()
 				PlayerRef.SetGhost(false)
-				PlayerRef.DispelSpell(RadResistSpell)
+				PlayerRef.RemovePerk(ImmuneToRadiation)
 				StartTimer(fFallDamagePreventionTime, DelayedFallDamageTimerID)		
 
 				if(bWasFlying)
@@ -339,7 +364,7 @@ Event OnMenuOpenCloseEvent(string asMenuName, bool abOpening)
 				endif
 				
 				if(InvulnerableInWorkshopMode)
-					RadResistSpell.Cast(PlayerRef)
+					PlayerRef.AddPerk(ImmuneToRadiation)
 					PlayerRef.SetGhost(true)
 				endif
 				
@@ -371,7 +396,88 @@ Function HandleGameLoaded()
 		WSFWVersionMismatch.Show()
 	endif
 	
+	if( ! PlayerRef.HasPerk(ActivationsPerk))
+		PlayerRef.AddPerk(ActivationsPerk)
+	endif
+	
 	IsGameSaving = false ; In case something caused this to get stuck on
+EndFunction
+
+
+Function TrackOwner(ObjectReference akObjectRef)
+	if(OwnershipTracking.Find(akObjectRef) >= 0)
+		ClearOwnershipTracking()
+	else
+		Actor thisActor = WorkshopFramework:WorkshopFunctions.GetAssignedActor(akObjectRef)
+		
+		if(thisActor == None)
+			NoOwnerFound.Show()
+			ClearOwnershipTracking()
+		else
+			OwnershipTracking.AddRef(akObjectRef)
+			OwnershipTracking.AddRef(thisActor)	
+			SetObjectiveDisplayed(iObjective_OwnershipTracking, true)
+			SetActive()			
+		endif
+	endif
+EndFunction
+
+
+Function TrackItems(Actor akActorRef)
+	if(OwnershipTracking.Find(akActorRef) >= 0)
+		ClearOwnershipTracking()
+	else
+		WorkshopScript thisWorkshop = akActorRef.GetLinkedRef(WorkshopItemKeyword) as WorkshopScript
+		
+		ObjectReference[] OwnedObjects
+		if(thisWorkshop)
+			OwnedObjects = thisWorkshop.GetWorkshopOwnedObjects(akActorRef)
+		endif
+		
+		if(OwnedObjects == None || OwnedObjects.Length == 0)
+			NoItemsFound.Show()
+			ClearOwnershipTracking()
+		else
+			OwnershipTracking.AddRef(akActorRef)
+		
+			Keyword[] ExcludeKeywords = new Keyword[0]
+			
+			; Skip Sim Settlements plot objects
+			if(Game.IsPluginInstalled("SimSettlements.esm"))
+				Keyword PlotSpawnedKeyword = Game.GetFormFromFile(0x000039D4, "SimSettlements.esm") as Keyword
+				ExcludeKeywords.Add(PlotSpawnedKeyword)
+			endif
+			
+			int i = 0
+			while(i < OwnedObjects.Length)
+				bool bTrackItem = OwnedObjects[i].HasKeyword(WorkshopWorkObject)
+				
+				int j = 0
+				while(j < ExcludeKeywords.Length && bTrackItem)
+					if(OwnedObjects[i].HasKeyword(ExcludeKeywords[j]))
+						bTrackItem = false
+					endif
+					
+					j += 1
+				endWhile
+				
+				if(bTrackItem)
+					OwnershipTracking.AddRef(OwnedObjects[i])
+				endif
+				
+				i += 1
+			endWhile
+			
+			SetObjectiveDisplayed(iObjective_OwnershipTracking, true)
+			SetActive()
+		endif
+	endif
+EndFunction
+
+
+Function ClearOwnershipTracking()
+	OwnershipTracking.RemoveAll()
+	SetObjectiveDisplayed(iObjective_OwnershipTracking, false)
 EndFunction
 
 
@@ -412,10 +518,10 @@ Function ToggleInvulnerable()
 	if(PlayerRef.IsGhost())
 		InvulnerableInWorkshopMode = false
 		PlayerRef.SetGhost(false)
-		PlayerRef.DispelSpell(RadResistSpell)
+		PlayerRef.RemovePerk(ImmuneToRadiation)
 	else
 		InvulnerableInWorkshopMode = true
-		RadResistSpell.Cast(PlayerRef)
+		PlayerRef.AddPerk(ImmuneToRadiation)
 		PlayerRef.SetGhost(true)		
 	endif
 EndFunction
@@ -720,6 +826,66 @@ Function ToggleFreeBuildMode(WorkshopScript akWorkshopRef = None, Bool abEnableF
 			endif
 		endif		
 	endif
+EndFunction
+
+
+Function MCM_TrackResource(Int aiTrackIndex)
+	TrackResource(aiResourceIndex = aiTrackIndex)
+EndFunction
+
+Function ClearResourceTracking()
+	ResourceTracking.RemoveAll()
+	
+	int i = 0
+	while(i < ResourceTrackingMaps.Length)
+		SetObjectiveDisplayed(ResourceTrackingMaps[i].iObjective, false)
+		
+		i += 1
+	endWhile
+EndFunction
+
+Function TrackResource(WorkshopScript akWorkshopRef = None, ActorValue aResourceForm = None, Int aiResourceIndex = -1)
+	ClearResourceTracking()
+	
+	if(akWorkshopRef == None)
+		akWorkshopRef = WorkshopFramework:WSFW_API.GetNearestWorkshop(PlayerRef)
+		
+		if( ! akWorkshopRef)
+			NotInSettlement.Show()
+			
+			return
+		endif
+	endif
+	
+	int iObjectiveToShow = -1
+	if(aResourceForm == None)
+		if(aiResourceIndex > -1)
+			aResourceForm = ResourceTrackingMaps[aiResourceIndex].ResourceAV
+			iObjectiveToShow = ResourceTrackingMaps[aiResourceIndex].iObjective
+		endif
+	else
+		int iIndex = ResourceTrackingMaps.FindStruct("ResourceAV", aResourceForm)
+		if(iIndex >= 0)
+			iObjectiveToShow = ResourceTrackingMaps[iIndex].iObjective
+		endif		
+	endif
+	
+	if(aResourceForm == None)
+		return
+	endif
+	
+	ObjectReference[] kResourceObjects = akWorkshopRef.GetWorkshopResourceObjects(aResourceForm)
+	int i = 0
+	while(i < kResourceObjects.Length)
+		if(kResourceObjects[i].GetValue(aResourceForm) > 0)
+			ResourceTracking.AddRef(kResourceObjects[i])
+		endif
+		
+		i += 1
+	endWhile
+	
+	SetObjectiveDisplayed(iObjectiveToShow, true)
+	SetActive(true)
 EndFunction
 
 

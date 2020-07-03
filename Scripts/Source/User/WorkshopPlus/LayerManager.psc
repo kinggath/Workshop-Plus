@@ -265,7 +265,7 @@ Event ObjectReference.OnWorkshopObjectMoved(ObjectReference akWorkshopRef, Objec
 					Debug.MessageBox("Item is a layer handle, can't be added to a layer.")
 				elseif(akReference.HasKeyword(WorkshopKeyword))
 					Debug.MessageBox("Item is a Workshop Workbench, can't be added to a layer.")
-				elseif(akReference as WorkshopNPCScript && ! (akReference as WorkshopObjectActorScript))
+				elseif(akReference as Actor && ! (akReference as WorkshopObjectActorScript))
 					Debug.MessageBox("Item is an NPC, can't be added to a layer.")
 				endif
 			endif
@@ -1182,7 +1182,7 @@ EndFunction
 
 Bool Function CanBeAddedToLayer(ObjectReference akNewItem)
 	; 1.0.2 - Short this if None sent
-	if( ! akNewItem || akNewItem.HasKeyword(PreventAddingToLayersKeyword) || akNewItem.HasKeyword(AddedToLayerKeyword) || akNewItem.HasKeyword(LayerHandleKeyword) || akNewItem.HasKeyword(WorkshopKeyword) || (akNewItem as WorkshopNPCScript && ! (akNewItem as WorkshopObjectActorScript)))
+	if( ! akNewItem || akNewItem.HasKeyword(PreventAddingToLayersKeyword) || akNewItem.HasKeyword(AddedToLayerKeyword) || akNewItem.HasKeyword(LayerHandleKeyword) || akNewItem.HasKeyword(WorkshopKeyword) || (akNewItem as Actor && ! (akNewItem as WorkshopObjectActorScript)))
 		return false
 	endif
 	
