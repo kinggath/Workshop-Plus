@@ -404,83 +404,6 @@ Function HandleGameLoaded()
 EndFunction
 
 
-Function TrackOwner(ObjectReference akObjectRef)
-	if(OwnershipTracking.Find(akObjectRef) >= 0)
-		ClearOwnershipTracking()
-	else
-		Actor thisActor = WorkshopFramework:WorkshopFunctions.GetAssignedActor(akObjectRef)
-		
-		if(thisActor == None)
-			NoOwnerFound.Show()
-			ClearOwnershipTracking()
-		else
-			OwnershipTracking.AddRef(akObjectRef)
-			OwnershipTracking.AddRef(thisActor)	
-			SetObjectiveDisplayed(iObjective_OwnershipTracking, true)
-			SetActive()			
-		endif
-	endif
-EndFunction
-
-
-Function TrackItems(Actor akActorRef)
-	if(OwnershipTracking.Find(akActorRef) >= 0)
-		ClearOwnershipTracking()
-	else
-		WorkshopScript thisWorkshop = akActorRef.GetLinkedRef(WorkshopItemKeyword) as WorkshopScript
-		
-		ObjectReference[] OwnedObjects
-		if(thisWorkshop)
-			OwnedObjects = thisWorkshop.GetWorkshopOwnedObjects(akActorRef)
-		endif
-		
-		if(OwnedObjects == None || OwnedObjects.Length == 0)
-			NoItemsFound.Show()
-			ClearOwnershipTracking()
-		else
-			OwnershipTracking.AddRef(akActorRef)
-		
-			Keyword[] ExcludeKeywords = new Keyword[0]
-			
-			; Skip Sim Settlements plot objects
-			if(Game.IsPluginInstalled("SimSettlements.esm"))
-				Keyword PlotSpawnedKeyword = Game.GetFormFromFile(0x000039D4, "SimSettlements.esm") as Keyword
-				ExcludeKeywords.Add(PlotSpawnedKeyword)
-			endif
-			
-			int i = 0
-			while(i < OwnedObjects.Length)
-				bool bTrackItem = OwnedObjects[i].HasKeyword(WorkshopWorkObject)
-				
-				int j = 0
-				while(j < ExcludeKeywords.Length && bTrackItem)
-					if(OwnedObjects[i].HasKeyword(ExcludeKeywords[j]))
-						bTrackItem = false
-					endif
-					
-					j += 1
-				endWhile
-				
-				if(bTrackItem)
-					OwnershipTracking.AddRef(OwnedObjects[i])
-				endif
-				
-				i += 1
-			endWhile
-			
-			SetObjectiveDisplayed(iObjective_OwnershipTracking, true)
-			SetActive()
-		endif
-	endif
-EndFunction
-
-
-Function ClearOwnershipTracking()
-	OwnershipTracking.RemoveAll()
-	SetObjectiveDisplayed(iObjective_OwnershipTracking, false)
-EndFunction
-
-
 Function ToggleFlight()
 	if(PlayerRef.GetRace() == FloatingRace)
 		FlyInWorkshopMode = false
@@ -828,6 +751,10 @@ Function ToggleFreeBuildMode(WorkshopScript akWorkshopRef = None, Bool abEnableF
 	endif
 EndFunction
 
+Function ClearAllTracking()
+	ClearOwnershipTracking()
+	ClearResourceTracking()
+EndFunction
 
 Function MCM_TrackResource(Int aiTrackIndex)
 	TrackResource(aiResourceIndex = aiTrackIndex)
@@ -888,6 +815,82 @@ Function TrackResource(WorkshopScript akWorkshopRef = None, ActorValue aResource
 	SetActive(true)
 EndFunction
 
+
+Function TrackOwner(ObjectReference akObjectRef)
+	if(OwnershipTracking.Find(akObjectRef) >= 0)
+		ClearOwnershipTracking()
+	else
+		Actor thisActor = WorkshopFramework:WorkshopFunctions.GetAssignedActor(akObjectRef)
+		
+		if(thisActor == None)
+			NoOwnerFound.Show()
+			ClearOwnershipTracking()
+		else
+			OwnershipTracking.AddRef(akObjectRef)
+			OwnershipTracking.AddRef(thisActor)	
+			SetObjectiveDisplayed(iObjective_OwnershipTracking, true)
+			SetActive()			
+		endif
+	endif
+EndFunction
+
+
+Function TrackItems(Actor akActorRef)
+	if(OwnershipTracking.Find(akActorRef) >= 0)
+		ClearOwnershipTracking()
+	else
+		WorkshopScript thisWorkshop = akActorRef.GetLinkedRef(WorkshopItemKeyword) as WorkshopScript
+		
+		ObjectReference[] OwnedObjects
+		if(thisWorkshop)
+			OwnedObjects = thisWorkshop.GetWorkshopOwnedObjects(akActorRef)
+		endif
+		
+		if(OwnedObjects == None || OwnedObjects.Length == 0)
+			NoItemsFound.Show()
+			ClearOwnershipTracking()
+		else
+			OwnershipTracking.AddRef(akActorRef)
+		
+			Keyword[] ExcludeKeywords = new Keyword[0]
+			
+			; Skip Sim Settlements plot objects
+			if(Game.IsPluginInstalled("SimSettlements.esm"))
+				Keyword PlotSpawnedKeyword = Game.GetFormFromFile(0x000039D4, "SimSettlements.esm") as Keyword
+				ExcludeKeywords.Add(PlotSpawnedKeyword)
+			endif
+			
+			int i = 0
+			while(i < OwnedObjects.Length)
+				bool bTrackItem = OwnedObjects[i].HasKeyword(WorkshopWorkObject)
+				
+				int j = 0
+				while(j < ExcludeKeywords.Length && bTrackItem)
+					if(OwnedObjects[i].HasKeyword(ExcludeKeywords[j]))
+						bTrackItem = false
+					endif
+					
+					j += 1
+				endWhile
+				
+				if(bTrackItem)
+					OwnershipTracking.AddRef(OwnedObjects[i])
+				endif
+				
+				i += 1
+			endWhile
+			
+			SetObjectiveDisplayed(iObjective_OwnershipTracking, true)
+			SetActive()
+		endif
+	endif
+EndFunction
+
+
+Function ClearOwnershipTracking()
+	OwnershipTracking.RemoveAll()
+	SetObjectiveDisplayed(iObjective_OwnershipTracking, false)
+EndFunction
 
 ; ---------------------------------------------
 ; MCM Functions - Easiest to avoid parameters for use with MCM's CallFunction, also we only want these hotkeys to work in WS mode
