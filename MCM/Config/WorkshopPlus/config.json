@@ -204,6 +204,35 @@
 		  }	  
 		},
 		{
+		  "text": "Alternate Activation Options",
+		  "type": "section"
+		},
+		{ 
+		  "id": "ActivationTrackItems:Options",
+		  "text": "Settler Activation",
+		  "type": "switcher",
+		  "help": "Adds alternate activation to settlers to track the items they own.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|16E2C"
+		  }	  
+		},
+		{ 
+		  "id": "ActivationTrackOwner:Options",
+		  "text": "Workshop Item Activation",
+		  "type": "switcher",
+		  "help": "Adds alternate activation to assignable workshop items to track the owner.",
+		  "valueOptions": {
+			"sourceType": "GlobalValue",
+			"sourceForm": "WorkshopPlus.esp|16E2D"
+		  }	  
+		}
+	]
+  },
+  {
+	"pageDisplayName": "Tools",
+	"content":[
+		{
 		  "text": "Tools",
 		  "type": "section"
 		},
@@ -235,6 +264,79 @@
 				"type": "CallFunction",
 				"form": "WorkshopPlus.esp|1ED7",
 				"function": "MCM_BreakInfiniteLinkedLayers"
+			}
+		},
+		{
+		  "text": "Tracking",
+		  "type": "section"
+		},
+		{
+			"text": "Clear Tracking",
+			"type": "button",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED5",
+				"function": "ClearResourceTracking"
+			}
+		},
+		{
+			"text": "Track Producers: Food",
+			"type": "button",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED5",
+				"function": "MCM_TrackResource",
+				"params": ["{i}0"]
+			}
+		},
+		{
+			"text": "Track Producers: Water",
+			"type": "button",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED5",
+				"function": "MCM_TrackResource",
+				"params": ["{i}1"]
+			}
+		},
+		{
+			"text": "Track Producers: Defense",
+			"type": "button",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED5",
+				"function": "MCM_TrackResource",
+				"params": ["{i}2"]
+			}
+		},
+		{
+			"text": "Track Producers: Power",
+			"type": "button",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED5",
+				"function": "MCM_TrackResource",
+				"params": ["{i}3"]
+			}
+		},
+		{
+			"text": "Track Producers: Happiness",
+			"type": "button",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED5",
+				"function": "MCM_TrackResource",
+				"params": ["{i}4"]
+			}
+		},
+		{
+			"text": "Track Producers: Stores",
+			"type": "button",
+			"action": {
+				"type": "CallFunction",
+				"form": "WorkshopPlus.esp|1ED5",
+				"function": "MCM_TrackResource",
+				"params": ["{i}5"]
 			}
 		}
 	]
@@ -355,7 +457,17 @@
 		  "text": "Show All Layers",
 		  "type": "hotkey",
 		  "help": "Show every item on all layers."
-		}		
+		},
+		{
+		  "text": "Tool Hotkeys",
+		  "type": "section"
+		},
+		{
+		  "id": "WP_ClearAllTracking",
+		  "text": "Clear Tracking",
+		  "type": "hotkey",
+		  "help": "Turn off tracking on items and settlers."
+		}	
 	]
   },
   {

@@ -270,6 +270,15 @@
 		"form": "WorkshopPlus.esp|1ED5", //MainQuest
 		"function": "Hotkey_ToggleFreeBuildMode"
 	  }
-	}
+	}, 
+	{
+	  "id": "WP_ClearAllTracking",
+	  "desc": "Workshop Plus: Clear anything being tracked by Workshop Plus.",
+	  "action": {
+		"type": "CallFunction",
+		"form": "WorkshopPlus.esp|1ED5", //MainQuest
+		"function": "ClearAllTracking"
+	  }
+	},
    ]
 }
